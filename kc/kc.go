@@ -105,12 +105,19 @@ func (d *DB) Close() {
 // The READ indicates read-only access to the database, the WRITE
 // indicates read and write access to the database (there isn't a write-only mode)
 func Open(dbfilepath string, mode int) (*DB, error) {
+	var cMode C.uint32_t
+
 	d := &DB{db: C.kcdbnew(), mode: mode}
 
 	dbname := C.CString(dbfilepath)
 	defer C.free(unsafe.Pointer(dbname))
 
-	if C.kcdbopen(d.db, dbname, C.KCOWRITER|C.KCOCREATE) == 0 {
+	cMode = C.KCOREADER
+	if mode > READ {
+		cMode = C.KCOWRITER|C.KCOCREATE
+	}
+
+	if C.kcdbopen(d.db, dbname, cMode) == 0 {
 		errMsg := d.LastError()
 		err := KCError(fmt.Sprintf("Error opening %s: %s", dbfilepath, errMsg))
 		return nil, err
