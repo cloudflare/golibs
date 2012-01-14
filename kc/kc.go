@@ -26,7 +26,7 @@ func (d *DB) Close() {
 	C.kcfree(unsafe.Pointer(d.db))
 }
 
-func OpenForWriting(dbfilepath string) (*DB, error) {
+func OpenForWrite(dbfilepath string) (*DB, error) {
 	db := &DB{db: C.kcdbnew()}
 
 	dbname := C.CString(dbfilepath)

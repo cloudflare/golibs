@@ -16,11 +16,11 @@ func Remove(path string) {
 	}
 }
 
-func TestShouldCreateTheFileOnDiscWhenOpenForWriting(t* testing.T) {
+func TestShouldCreateTheFileOnDiscWhenOpenForWrite(t* testing.T) {
 	filepath := "/tmp/names.kch"
 	defer Remove(filepath)
 
-	db, _ := OpenForWriting(filepath)
+	db, _ := OpenForWrite(filepath)
 	defer db.Close()
 
 	if !Exists(filepath) {
