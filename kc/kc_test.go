@@ -97,7 +97,7 @@ func TestShouldHaveConstantsForReadAndWrite(t *testing.T) {
 }
 
 func TestShouldNotBeAbleToSetAValueInREADMode(t *testing.T) {
-	filepath := "/tmp/musicias.kch"
+	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
 	db, _ := Open(filepath, WRITE) // creating the file
