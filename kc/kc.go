@@ -93,7 +93,7 @@ func (d *DB) Get(key string) (string, error) {
 //
 // You can do it using the defer statement:
 //
-//     db := OpenForWrite("my_db.kch")
+//     db := Open("my_db.kch", WRITE)
 //     defer db.Close()
 func (d *DB) Close() {
 	C.kcfree(unsafe.Pointer(d.db))
