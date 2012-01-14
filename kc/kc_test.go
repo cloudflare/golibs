@@ -18,7 +18,7 @@ func Remove(path string) {
 	}
 }
 
-func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t* testing.T) {
+func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
@@ -36,7 +36,7 @@ func TestShouldReportADescriptiveErrorMessageWhenFailToOpenADatabaseForWrite(t *
 
 	_, err := OpenForReadAndWrite(filepath)
 
-	if (err == nil || !strings.Contains(err.Error(), expectedMessagePart)) {
+	if err == nil || !strings.Contains(err.Error(), expectedMessagePart) {
 		t.Errorf("Should fail with a descriptive message")
 	}
 }
@@ -58,7 +58,7 @@ func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
 	}
 }
 
-func TestShouldBeAbleToSetAndGetAValue(t* testing.T) {
+func TestShouldBeAbleToSetAndGetAValue(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
@@ -82,7 +82,7 @@ func TestShouldReturnErrorExplainingWhenAKeyIsNotFound(t *testing.T) {
 		defer db.Close()
 
 		_, err := db.Get("name")
-		if err == nil || !strings.Contains(err.Error(), "no record"){
+		if err == nil || !strings.Contains(err.Error(), "no record") {
 			t.Errorf("Should return a clear error message when no record is found for a key.")
 		}
 	} else {
