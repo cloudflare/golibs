@@ -2,8 +2,7 @@ package kc
 
 type DB string
 
-func (d *DB) Close() error {
-	return nil
+func (d *DB) Close() {
 }
 
 func OpenForWriting(dbfilepath string) (*DB, error) {
