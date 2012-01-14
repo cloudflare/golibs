@@ -95,3 +95,20 @@ func TestShouldHaveConstantsForReadAndWrite(t *testing.T) {
 		t.Errorf("constant READ should be 1 and WRITE should be 2")
 	}
 }
+
+func TestShouldNotBeAbleToSetAValueInREADMode(t *testing.T) {
+	filepath := "/tmp/musicias.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE) // creating the file
+	db.Close()
+
+	db, _ = Open(filepath, READ)
+	defer db.Close()
+
+	err := db.Set("name", "Frank Sinatra")
+
+	if err == nil || !strings.Contains(err.Error(), "read-only mode") {
+		t.Errorf("It should not be possible to set a value in read-only mode, but I was able to set")
+	}
+}

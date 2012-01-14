@@ -30,6 +30,7 @@ func (err KCError) Error() string {
 // of the database, for interactions.
 type DB struct {
 	db *C.KCDB
+	mode int
 }
 
 // Returns a readable string to the last occurred error in the database
@@ -41,6 +42,10 @@ func (d *DB) LastError() string {
 // Sets a value in the database. Currently, it's able to store only string values.
 // Returns a KCError instance in case of errors, otherwise, returns nil.
 func (d *DB) Set(key, value string) error {
+	if d.mode < WRITE {
+		return KCError("The database was opened in read-only mode, you can't set a value")
+	}
+
 	cKey := C.CString(key)
 	defer C.free(unsafe.Pointer(cKey))
 
@@ -100,7 +105,7 @@ func (d *DB) Close() {
 // The READ indicates read-only access to the database, the WRITE
 // indicates read and write access to the database (there isn't a write-only mode)
 func Open(dbfilepath string, mode int) (*DB, error) {
-	d := &DB{db: C.kcdbnew()}
+	d := &DB{db: C.kcdbnew(), mode: mode}
 
 	dbname := C.CString(dbfilepath)
 	defer C.free(unsafe.Pointer(dbname))
