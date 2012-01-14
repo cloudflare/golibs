@@ -12,6 +12,12 @@ import (
 	"unsafe"
 )
 
+const (
+	_ = iota
+	READ
+	WRITE
+)
+
 // Type used for errors using the kabinet library.
 // It implements the builting error interface.
 type KCError string
@@ -88,8 +94,12 @@ func (d *DB) Close() {
 	C.kcfree(unsafe.Pointer(d.db))
 }
 
-// Opens a database in write and read mode
-func OpenForReadAndWrite(dbfilepath string) (*DB, error) {
+// Opens a database
+// There are constants for the modes: READ and WRITE.
+//
+// The READ indicates read-only access to the database, the WRITE
+// indicates read and write access to the database (there isn't a write-only mode)
+func Open(dbfilepath string, mode int) (*DB, error) {
 	d := &DB{db: C.kcdbnew()}
 
 	dbname := C.CString(dbfilepath)

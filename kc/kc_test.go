@@ -22,7 +22,7 @@ func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
-	db, _ := OpenForReadAndWrite(filepath)
+	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 
 	if !Exists(filepath) {
@@ -34,7 +34,7 @@ func TestShouldReportADescriptiveErrorMessageWhenFailToOpenADatabaseForWrite(t *
 	filepath := "/root/db.kch" // i won't be able to write here :)
 	expectedMessagePart := fmt.Sprintf("Error opening %s:", filepath)
 
-	_, err := OpenForReadAndWrite(filepath)
+	_, err := Open(filepath, WRITE)
 
 	if err == nil || !strings.Contains(err.Error(), expectedMessagePart) {
 		t.Errorf("Should fail with a descriptive message")
@@ -45,11 +45,11 @@ func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
 	filepath := "/tmp/musicias.kch"
 	defer Remove(filepath)
 
-	db, _ := OpenForReadAndWrite(filepath)
+	db, _ := Open(filepath, WRITE)
 	db.Set("name", "Steve Vai")
 	db.Close()
 
-	db, _ = OpenForReadAndWrite(filepath)
+	db, _ = Open(filepath, WRITE)
 	defer db.Close()
 	name, _ := db.Get("name")
 
@@ -62,7 +62,7 @@ func TestShouldBeAbleToSetAndGetAValue(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
-	if db, err := OpenForReadAndWrite(filepath); err == nil {
+	if db, err := Open(filepath, WRITE); err == nil {
 		defer db.Close()
 
 		db.Set("name", "Alanis Morissette")
@@ -78,7 +78,7 @@ func TestShouldReturnErrorExplainingWhenAKeyIsNotFound(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
-	if db, err := OpenForReadAndWrite(filepath); err == nil {
+	if db, err := Open(filepath, WRITE); err == nil {
 		defer db.Close()
 
 		_, err := db.Get("name")
@@ -87,5 +87,11 @@ func TestShouldReturnErrorExplainingWhenAKeyIsNotFound(t *testing.T) {
 		}
 	} else {
 		t.Errorf("Failed to open the file: %s.", filepath)
+	}
+}
+
+func TestShouldHaveConstantsForReadAndWrite(t *testing.T) {
+	if READ != 1 || WRITE != 2 {
+		t.Errorf("constant READ should be 1 and WRITE should be 2")
 	}
 }
