@@ -41,6 +41,23 @@ func TestShouldReportADescriptiveErrorMessageWhenFailToOpenADatabaseForWrite(t *
 	}
 }
 
+func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
+	filepath := "/tmp/musicias.kch"
+	defer Remove(filepath)
+
+	db, _ := OpenForWrite(filepath)
+	db.Set("name", "Steve Vai")
+	db.Close()
+
+	db, _ = OpenForWrite(filepath)
+	defer db.Close()
+	name, _ := db.Get("name")
+
+	if name != "Steve Vai" {
+		t.Errorf("Should be able to write, close, open and get the value stored in write mode")
+	}
+}
+
 func TestShouldBeAbleToSetAndGetAValue(t* testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
