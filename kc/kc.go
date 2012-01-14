@@ -89,7 +89,7 @@ func (d *DB) Close() {
 }
 
 // Opens a database in write and read mode
-func OpenForWrite(dbfilepath string) (*DB, error) {
+func OpenForReadAndWrite(dbfilepath string) (*DB, error) {
 	d := &DB{db: C.kcdbnew()}
 
 	dbname := C.CString(dbfilepath)

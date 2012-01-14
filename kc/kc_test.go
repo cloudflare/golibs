@@ -18,11 +18,11 @@ func Remove(path string) {
 	}
 }
 
-func TestShouldCreateTheFileInTheDiscWhenOpenForWrite(t* testing.T) {
+func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t* testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
-	db, _ := OpenForWrite(filepath)
+	db, _ := OpenForReadAndWrite(filepath)
 	defer db.Close()
 
 	if !Exists(filepath) {
@@ -34,7 +34,7 @@ func TestShouldReportADescriptiveErrorMessageWhenFailToOpenADatabaseForWrite(t *
 	filepath := "/root/db.kch" // i won't be able to write here :)
 	expectedMessagePart := fmt.Sprintf("Error opening %s:", filepath)
 
-	_, err := OpenForWrite(filepath)
+	_, err := OpenForReadAndWrite(filepath)
 
 	if (err == nil || !strings.Contains(err.Error(), expectedMessagePart)) {
 		t.Errorf("Should fail with a descriptive message")
@@ -45,11 +45,11 @@ func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
 	filepath := "/tmp/musicias.kch"
 	defer Remove(filepath)
 
-	db, _ := OpenForWrite(filepath)
+	db, _ := OpenForReadAndWrite(filepath)
 	db.Set("name", "Steve Vai")
 	db.Close()
 
-	db, _ = OpenForWrite(filepath)
+	db, _ = OpenForReadAndWrite(filepath)
 	defer db.Close()
 	name, _ := db.Get("name")
 
@@ -62,7 +62,7 @@ func TestShouldBeAbleToSetAndGetAValue(t* testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
-	if db, err := OpenForWrite(filepath); err == nil {
+	if db, err := OpenForReadAndWrite(filepath); err == nil {
 		defer db.Close()
 
 		db.Set("name", "Alanis Morissette")
@@ -78,7 +78,7 @@ func TestShouldReturnErrorExplainingWhenAKeyIsNotFound(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
-	if db, err := OpenForWrite(filepath); err == nil {
+	if db, err := OpenForReadAndWrite(filepath); err == nil {
 		defer db.Close()
 
 		_, err := db.Get("name")
