@@ -5,7 +5,7 @@ library to use with): http://fallabs.com/kyotocabinet/
 
 You can install gokabinet using goinstall:
 
-    % [sudo] goinstall github.com/fsouza/gokabinet/kc
+    % goinstall github.com/fsouza/gokabinet/kc
 
 After installing it, you can use in your Go code. Here is a simple example:
 
