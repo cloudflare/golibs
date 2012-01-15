@@ -13,9 +13,7 @@ type VisitsHandler struct {
 }
 
 func (h VisitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.db.Increment("visits", 1)
-
-	if visits, err := h.db.GetInt("visits"); err == nil {
+	if visits, err := h.db.Increment("visits", 1); err == nil {
 		io.WriteString(w, fmt.Sprintf("Welcome, you are the visitor number %d!", visits))
 	} else {
 		log.Fatal(err)
