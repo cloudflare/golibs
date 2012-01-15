@@ -89,6 +89,30 @@ func (d *DB) Get(key string) (string, error) {
 	return C.GoString(cValue), nil
 }
 
+// Removes a value from the database by its key.
+//
+// Returns an error if the key is not found or other errors
+// returns a KCError instance with a message describing the error
+func (d *DB) Remove(key string) error {
+	if d.mode < WRITE {
+		return KCError("The database was opened in read-only mode, you can't remove a record")
+	}
+
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+
+	lKey := C.size_t(len(key))
+	status := C.kcdbremove(d.db, cKey, lKey)
+
+	if status == 0 {
+		errMsg := d.LastError()
+		err := KCError(fmt.Sprintf("Failed to remove the value for the key %s: %s", key, errMsg))
+		return err
+	}
+
+	return nil
+}
+
 // Closes the database, make sure you always call this method after using the database.
 //
 // You can do it using the defer statement:
