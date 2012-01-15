@@ -96,7 +96,8 @@ func (d *DB) Get(key string) (string, error) {
 //     db := Open("my_db.kch", WRITE)
 //     defer db.Close()
 func (d *DB) Close() {
-	C.kcfree(unsafe.Pointer(d.db))
+	C.kcdbclose(d.db)
+	C.kcdbdel(d.db)
 }
 
 // Opens a database
