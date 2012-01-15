@@ -114,6 +114,49 @@ func (d *DB) Remove(key string) error {
 	return nil
 }
 
+// Sets the value of an integer record, creating it when there is no
+// record correspondent to the given key
+//
+// Returns an KCError in case of errors setting the value
+func (d *DB) SetInt(key string, number int) error {
+	if d.mode < WRITE {
+		return KCError("SetInt doesn't work in read-only mode")
+	}
+
+	d.Remove(key)
+
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+
+	lKey := C.size_t(len(key))
+	cValue := C.int64_t(number)
+
+	if C.kcdbincrint(d.db, cKey, lKey, cValue, 0) == C.INT64_MAX {
+		errMsg := d.LastError()
+		return KCError(fmt.Sprintf("Error setting integer value: %s", errMsg))
+	}
+
+	return nil
+}
+
+func (d *DB) GetInt(key string) (int, error) {
+	v, err := d.Get(key)
+	if err != nil {
+		return 0, err
+	} else if (v != "") {
+		err := KCError("Error: don't use GetInt to get a non-numeric record")
+		return 0, err
+	}
+
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+
+	lKey := C.size_t(len(key))
+	number := C.kcdbincrint(d.db, cKey, lKey, 0, 0)
+
+	return int(number), nil
+}
+
 // Closes the database, make sure you always call this method after using the database.
 //
 // You can do it using the defer statement:
