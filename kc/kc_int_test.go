@@ -73,7 +73,7 @@ func TestGetIntShoulReturnAnErrorIfTheGivenKeyDoesNotExit(t *testing.T) {
 	}
 }
 
-func TestGetintShouldRetornAnErrorIfTheGivenKeyIsANonNumericRecord(t *testing.T) {
+func TestGetIntShouldRetornAnErrorIfTheGivenKeyIsANonNumericRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
