@@ -139,6 +139,10 @@ func (d *DB) SetInt(key string, number int) error {
 	return nil
 }
 
+// Gets a numeric record from the database
+//
+// In case of errors (e.g.: when the given key refers to a non-numeric record),
+// returns 0 and a KCError instance.
 func (d *DB) GetInt(key string) (int, error) {
 	v, err := d.Get(key)
 	if err != nil {
