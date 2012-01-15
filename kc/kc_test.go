@@ -127,7 +127,7 @@ func TestShouldBeAbleToRemoveARecordFromTheDatabase(t *testing.T) {
 			t.Errorf("The instrument value should be removed from the database, but it wasn't")
 		}
 	} else {
-		t.Errorf("Failed to open file %s: %s", filepath, db.LastError())
+		t.Errorf("Failed to open file %s: %s", filepath, err.Error())
 	}
 }
 
@@ -142,7 +142,7 @@ func TestShouldReturnAnErrorMessageWhenTryingToRemoveANonPresentRecord(t *testin
 			t.Errorf("Should not be able to remove an non-present record from the database")
 		}
 	} else {
-		t.Errorf("Failed to open file %s: %s", filepath, db.LastError())
+		t.Errorf("Failed to open file %s: %s", filepath, err.Error())
 	}
 }
 
