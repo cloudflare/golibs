@@ -161,22 +161,24 @@ func (d *DB) GetInt(key string) (int, error) {
 	return int(number), nil
 }
 
-// Increments the value of a numeric record by a given number
+// Increments the value of a numeric record by a given number,
+// and return the incremented value
 //
-// In case of errors, returns a KCError instance with detailed
+// In case of errors, returns 0 and a KCError instance with detailed
 // error message
-func (d *DB) Increment(key string, number int) error {
+func (d *DB) Increment(key string, number int) (int, error) {
 	cKey := C.CString(key)
 	defer C.free(unsafe.Pointer(cKey))
 
 	lKey := C.size_t(len(key))
 	cValue := C.int64_t(number)
 
-	if C.kcdbincrint(d.db, cKey, lKey, cValue, 0) == C.INT64_MIN {
-		return KCError("It's not possible to increment a non-numeric record")
+	v := C.kcdbincrint(d.db, cKey, lKey, cValue, 0)
+	if v == C.INT64_MIN {
+		return 0, KCError("It's not possible to increment a non-numeric record")
 	}
 
-	return nil
+	return int(v), nil
 }
 
 // Closes the database, make sure you always call this method after using the database.

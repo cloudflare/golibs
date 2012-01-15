@@ -124,7 +124,21 @@ func TestIncrementShouldReturnAnErrorIfTheIncrementedValueIsANonNumericRecord(t 
 	defer db.Close()
 
 	db.Set("name", "Francisco Souza")
-	if err := db.Increment("name", 1); err == nil || !strings.Contains(err.Error(), "non-numeric record") {
+	if _, err := db.Increment("name", 1); err == nil || !strings.Contains(err.Error(), "non-numeric record") {
 		t.Errorf("Should return an error message when trying to increment a non-numeric record %s")
+	}
+}
+
+func TestIncrementShouldReturnTheIncrementedValue(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+
+	db.Increment("people", 100)
+	v, _ := db.Increment("people", 1)
+	if v != 101 {
+		t.Errorf("Increment should return 101, got %d", v)
 	}
 }
