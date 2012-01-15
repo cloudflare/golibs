@@ -86,3 +86,45 @@ func TestGetIntShouldRetornAnErrorIfTheGivenKeyIsANonNumericRecord(t *testing.T)
 		t.Errorf("GetInt should return an error when the given key refers to a non-numeric record")
 	}
 }
+
+func TestIncrementShouldIncrementTheValueOfANumericRecord(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+
+	db.SetInt("people", 1)
+	db.Increment("people", 10)
+
+	if v, _ := db.GetInt("people"); v != 11 {
+		t.Errorf("Should increment 1 in 10 and get 11, but got %d", v)
+	}
+}
+
+func TestIncrementShouldCrateTheRecordWhenItDoesNotExist(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+
+	db.Increment("people", 100)
+
+	if v, _ := db.GetInt("people"); v != 100 {
+		t.Errorf("Should create the record with value 100, but the value is %d", v)
+	}
+}
+
+func TestIncrementShouldReturnAnErrorIfTheIncrementedValueIsANonNumericRecord(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+
+	db.Set("name", "Francisco Souza")
+	if err := db.Increment("name", 1); err == nil || !strings.Contains(err.Error(), "non-numeric record") {
+		t.Errorf("Should return an error message when trying to increment a non-numeric record %s")
+	}
+}
