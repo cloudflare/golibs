@@ -1,3 +1,30 @@
 Go bindings for kyoto cabinet database
 
-More details on kyoto cabinet: http://fallabs.com/kyotocabinet/
+More details on Kyoto Cabinet and how to install it (you need its core
+library to use with): http://fallabs.com/kyotocabinet/
+
+You can install gokabinet using goinstall:
+
+    % [sudo] goinstall github.com/fsouza/gokabinet/kc
+
+After installing it, you can use in your Go code. Here is a simple example:
+
+    package main
+
+    import (
+        "github.com/fsouza/gokabinet/kc"
+    )
+
+    func main() {
+        db := kc.Open("/tmp/cache.kch", kc.READ)
+        defer db.Close()
+
+        db.Set("names", "Maria|João|José")
+        db.SetInt("hits", 500)
+
+        for (i := 0; i < 100; i++) {
+            db.Increment("hits", 1)
+        }
+    }
+
+For more examples, check the examples directory in the repository.
