@@ -54,11 +54,11 @@ func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
 	name, _ := db.Get("name")
 
 	if name != "Steve Vai" {
-		t.Errorf("Should be able to write, close, open and get the value stored in write mode")
+		t.Errorf("Should be able to write, close, open and get the record stored in write mode")
 	}
 }
 
-func TestShouldBeAbleToSetAndGetAValue(t *testing.T) {
+func TestShouldBeAbleToSetAndGetARecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
@@ -67,7 +67,7 @@ func TestShouldBeAbleToSetAndGetAValue(t *testing.T) {
 
 		db.Set("name", "Alanis Morissette")
 		if name, _ := db.Get("name"); name != "Alanis Morissette" {
-			t.Errorf("Should set the value \"Alanis Morissette\" to the key \"name\", but got \"%s\".", name)
+			t.Errorf("Should add a record with the value \"Alanis Morissette\" and the key \"name\", but got \"%s\".", name)
 		}
 	} else {
 		t.Errorf("Failed to open the file: %s.", filepath)
@@ -96,7 +96,7 @@ func TestShouldHaveConstantsForReadAndWrite(t *testing.T) {
 	}
 }
 
-func TestShouldNotBeAbleToSetAValueInREADMode(t *testing.T) {
+func TestShouldNotBeAbleToSetARecordInREADMode(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
@@ -109,11 +109,11 @@ func TestShouldNotBeAbleToSetAValueInREADMode(t *testing.T) {
 	err := db.Set("name", "Frank Sinatra")
 
 	if err == nil || !strings.Contains(err.Error(), "read-only mode") {
-		t.Errorf("It should not be possible to set a value in read-only mode, but I was able to set")
+		t.Errorf("It should not be possible to add a new record in read-only mode, but I was able to set")
 	}
 }
 
-func TestShouldBeAbleToRemoveAValueFromTheDatabase(t *testing.T) {
+func TestShouldBeAbleToRemoveARecordFromTheDatabase(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
@@ -124,14 +124,14 @@ func TestShouldBeAbleToRemoveAValueFromTheDatabase(t *testing.T) {
 		_, err := db.Get("instrument")
 
 		if err == nil {
-			t.Errorf("The instrumento value should be removed from the database, but it wasn't")
+			t.Errorf("The instrument value should be removed from the database, but it wasn't")
 		}
 	} else {
 		t.Errorf("Failed to open file %s: %s", filepath, db.LastError())
 	}
 }
 
-func TestShouldReturnAnErrorMessageWhenTryingToRemoveANonPresentValue(t *testing.T) {
+func TestShouldReturnAnErrorMessageWhenTryingToRemoveANonPresentRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 
@@ -139,14 +139,14 @@ func TestShouldReturnAnErrorMessageWhenTryingToRemoveANonPresentValue(t *testing
 		err := db.Remove("instrument")
 
 		if err == nil || !strings.Contains(err.Error(), "no record") {
-			t.Errorf("Should not be able to remove an non-present value from the database")
+			t.Errorf("Should not be able to remove an non-present record from the database")
 		}
 	} else {
 		t.Errorf("Failed to open file %s: %s", filepath, db.LastError())
 	}
 }
 
-func TestShouldNotBeAbleToRemoveAValueInReadOnlyMode(t *testing.T) {
+func TestShouldNotBeAbleToRemoveARecordInReadOnlyMode(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
 

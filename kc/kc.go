@@ -39,11 +39,12 @@ func (d *DB) LastError() string {
 	return errMsg
 }
 
-// Sets a value in the database. Currently, it's able to store only string values.
+// Adds a record to the database. Currently, it's able to store only string values.
+//
 // Returns a KCError instance in case of errors, otherwise, returns nil.
 func (d *DB) Set(key, value string) error {
 	if d.mode < WRITE {
-		return KCError("The database was opened in read-only mode, you can't set a value")
+		return KCError("The database was opened in read-only mode, you can't add records to it")
 	}
 
 	cKey := C.CString(key)
@@ -57,14 +58,14 @@ func (d *DB) Set(key, value string) error {
 
 	if C.kcdbset(d.db, cKey, lKey, cValue, lValue) == 0 {
 		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Failed to set the value %s to the key %s: %s", value, key, errMsg))
+		err := KCError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", value, key, errMsg))
 		return err
 	}
 
 	return nil
 }
 
-// Gets a value in the database by its key.
+// Gets a record in the database by its key.
 //
 // Returns the string value and nil in case of success, in case of
 // errors, return a zero-valued string and an KCError instance (including
@@ -82,20 +83,20 @@ func (d *DB) Get(key string) (string, error) {
 
 	if cValue == nil {
 		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Failed to get a value for the key %s: %s", key, errMsg))
+		err := KCError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
 		return "", err
 	}
 
 	return C.GoString(cValue), nil
 }
 
-// Removes a value from the database by its key.
+// Removes a record from the database by its key.
 //
 // Returns an error if the key is not found or other errors
 // returns a KCError instance with a message describing the error
 func (d *DB) Remove(key string) error {
 	if d.mode < WRITE {
-		return KCError("The database was opened in read-only mode, you can't remove a record")
+		return KCError("The database was opened in read-only mode, you can't remove a record from it")
 	}
 
 	cKey := C.CString(key)
@@ -106,7 +107,7 @@ func (d *DB) Remove(key string) error {
 
 	if status == 0 {
 		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Failed to remove the value for the key %s: %s", key, errMsg))
+		err := KCError(fmt.Sprintf("Failed to remove the record with the key %s: %s", key, errMsg))
 		return err
 	}
 
