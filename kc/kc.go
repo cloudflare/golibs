@@ -131,7 +131,7 @@ func (d *DB) SetInt(key string, number int) error {
 	lKey := C.size_t(len(key))
 	cValue := C.int64_t(number)
 
-	if C.kcdbincrint(d.db, cKey, lKey, cValue, 0) == C.INT64_MAX {
+	if C.kcdbincrint(d.db, cKey, lKey, cValue, 0) == C.INT64_MIN {
 		errMsg := d.LastError()
 		return KCError(fmt.Sprintf("Error setting integer value: %s", errMsg))
 	}
