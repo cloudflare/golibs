@@ -29,7 +29,7 @@ func (err KCError) Error() string {
 // The basic type for the kabinet library. Holds an unexported instance
 // of the database, for interactions.
 type DB struct {
-	db *C.KCDB
+	db   *C.KCDB
 	mode int
 }
 
@@ -138,7 +138,7 @@ func Open(dbfilepath string, mode int) (*DB, error) {
 
 	cMode := C.uint32_t(C.KCOREADER)
 	if mode > READ {
-		cMode = C.KCOWRITER|C.KCOCREATE
+		cMode = C.KCOWRITER | C.KCOCREATE
 	}
 
 	if C.kcdbopen(d.db, dbname, cMode) == 0 {
