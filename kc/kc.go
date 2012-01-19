@@ -92,8 +92,9 @@ func (d *DB) Get(key string) (string, error) {
 
 // Removes a record from the database by its key.
 //
-// Returns an error if the key is not found or other errors
-// returns a KCError instance with a message describing the error
+// Returns a KCError instance if there is no record for the given key,
+// or in case of other errors. The error instance contains a message
+// describing what happened
 func (d *DB) Remove(key string) error {
 	if d.mode < WRITE {
 		return KCError("The database was opened in read-only mode, you can't remove a record from it")
