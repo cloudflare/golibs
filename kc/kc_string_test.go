@@ -18,6 +18,18 @@ func Remove(path string) {
 	}
 }
 
+func TestShouldHoldTheFilePathInTheDBObject(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+
+	if db.filepath != filepath {
+		t.Errorf("The filepath should be %s, but was %s", filepath, db.filepath)
+	}
+}
+
 func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)

@@ -30,6 +30,7 @@ func (err KCError) Error() string {
 // of the database, for interactions.
 type DB struct {
 	db   *C.KCDB
+	filepath string
 	mode int
 }
 
@@ -199,7 +200,7 @@ func (d *DB) Close() {
 // The READ indicates read-only access to the database, the WRITE
 // indicates read and write access to the database (there isn't a write-only mode)
 func Open(dbfilepath string, mode int) (*DB, error) {
-	d := &DB{db: C.kcdbnew(), mode: mode}
+	d := &DB{db: C.kcdbnew(), mode: mode, filepath: dbfilepath}
 
 	dbname := C.CString(dbfilepath)
 	defer C.free(unsafe.Pointer(dbname))
