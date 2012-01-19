@@ -66,6 +66,32 @@ func (d *DB) Set(key, value string) error {
 	return nil
 }
 
+func (d *DB) Append(key, value string) error {
+	if d.mode < WRITE {
+		return KCError("The database was opened in read-only mode, you can't append strings to records")
+	}
+
+	if _, err := d.GetInt(key); err == nil {
+		return KCError("The database doesn't support append a string to a numeric record")
+	}
+
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cValue))
+
+	lKey := C.size_t(len(key))
+	lValue := C.size_t(len(value))
+
+	if C.kcdbappend(d.db, cKey, lKey, cValue, lValue) == 0 {
+		errMsg := d.LastError()
+		return KCError(fmt.Sprintf("Failed to append a string to a record: %s", errMsg))
+	}
+
+	return nil
+}
+
 // Gets a record in the database by its key.
 //
 // Returns the string value and nil in case of success, in case of

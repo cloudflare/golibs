@@ -98,3 +98,46 @@ func TestShouldReturnAnErrorMessageWhenTryingToRemoveANonPresentStringRecord(t *
 		t.Errorf("Failed to open file %s: %s", filepath, err.Error())
 	}
 }
+
+func TestShouldBeAbleToAppendAStringToAStringRecord(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	if db, err := Open(filepath, WRITE); err == nil {
+		db.Set("name", "Steve")
+		db.Append("name", " Vai")
+		if v, _ := db.Get("name"); v != "Steve Vai" {
+			t.Errorf("The name value should be Steve Vai, but was %s", v)
+		}
+	} else {
+		t.Errorf("Error opening %s: %s", filepath, err.Error())
+	}
+}
+
+func TestShouldNotBeAbleToAppendAStringToAStringRecordInREADMode(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE)
+	db.Set("name", "Steve")
+	db.Close()
+
+	db, _ = Open(filepath, READ)
+	defer db.Close()
+	if err := db.Append("name", " Vai"); err == nil || !strings.Contains(err.Error(), "read-only mode") {
+		t.Errorf("Should not be able to append a string to a string record in read-only mode")
+	}
+}
+
+func TestShouldNotBeAbleToAppendStringsToNumericRecords(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+
+	db.SetInt("age", 50)
+	if err := db.Append("age", "50"); err == nil || !strings.Contains(err.Error(), "numeric record"){
+		t.Errorf("Should not be able to append a string to a numeric record, and provide a descriptive message for the error")
+	}
+}
