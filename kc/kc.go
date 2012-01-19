@@ -18,7 +18,7 @@ const (
 	WRITE
 )
 
-// Type used for errors using the kabinet library.
+// Type used for errors using the gokabinet library.
 // It implements the builting error interface.
 type KCError string
 
@@ -26,7 +26,7 @@ func (err KCError) Error() string {
 	return string(err)
 }
 
-// The basic type for the kabinet library. Holds an unexported instance
+// The basic type for the gokabinet library. Holds an unexported instance
 // of the database, for interactions.
 type DB struct {
 	db   *C.KCDB
