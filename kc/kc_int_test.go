@@ -142,3 +142,18 @@ func TestIncrementShouldReturnTheIncrementedValue(t *testing.T) {
 		t.Errorf("Increment should return 101, got %d", v)
 	}
 }
+
+func TestShoulBeAbleToRemoveANumericRecordFromTheDatabaseUsingTheRemoveMethod(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer Remove(filepath)
+
+	if db, err := Open(filepath, WRITE); err == nil {
+		db.SetInt("discs", 20)
+		db.Remove("discs")
+		if _, err := db.GetInt("discs"); err == nil {
+			t.Errorf("Should remove the discs numeric record from the database")
+		}
+	} else {
+		t.Errorf("Failed to open file %s: %s", filepath, err.Error())
+	}
+}
