@@ -17,18 +17,6 @@ func Remove(path string) {
 	}
 }
 
-func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t *testing.T) {
-	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
-
-	db, _ := Open(filepath, WRITE)
-	defer db.Close()
-
-	if !Exists(filepath) {
-		t.Errorf("%s should exists, but it doesn't", filepath)
-	}
-}
-
 func TestShouldBeAbleToSetAndGetAStringRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer Remove(filepath)
