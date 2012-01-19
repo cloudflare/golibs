@@ -66,6 +66,13 @@ func (d *DB) Set(key, value string) error {
 	return nil
 }
 
+// This methods appends a string to the end of the value of a string
+// record. It can't append any value to a numeric record.
+//
+// Returns a KCError instance when trying to append a string to a numeric
+// record and when trying to append a string in read-only mode.
+//
+// If the append is successful, the method returns nil
 func (d *DB) Append(key, value string) error {
 	if d.mode < WRITE {
 		return KCError("The database was opened in read-only mode, you can't append strings to records")
