@@ -28,3 +28,5 @@ After installing it, you can use in your Go code. Here is a simple example:
     }
 
 For more examples, check the examples directory in the repository.
+
+Online docs provided by GoPkgDoc: http://gopkgdoc.appspot.com/pkg/github.com/fsouza/gokabinet/kc
