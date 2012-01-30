@@ -227,7 +227,7 @@ func (d *DB) Increment(key string, number int) (int, error) {
 // Applies a funcion to all records in the database
 //
 // The function is called with the key and the value as parameters.
-// All extra arguments passed to Apply are used in the call
+// All extra arguments passed to Apply are used in the call to f
 func (d *DB) Apply(f ApplyFunc, args ...interface{}) {
 	var keyLen, valueLen C.size_t
 	var valueBuffer *C.char
