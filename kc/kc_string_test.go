@@ -1,21 +1,9 @@
 package kc
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
-
-func Exists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil || err.(*os.PathError).Err != os.ENOENT
-}
-
-func Remove(path string) {
-	if Exists(path) {
-		os.Remove(path)
-	}
-}
 
 func TestShouldBeAbleToSetAndGetAStringRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
