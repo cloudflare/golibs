@@ -38,7 +38,7 @@ func main() {
 	defer h.CloseDB()
 
 	http.Handle("/", h)
-	if err := http.ListenAndServe(":6060", nil); err != nil {
+	if err := http.ListenAndServe(":6000", nil); err != nil {
 		log.Fatal(err)
 	}
 }
