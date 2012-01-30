@@ -16,13 +16,13 @@ After installing it, you can use in your Go code. Here is a simple example:
     )
 
     func main() {
-        db := kc.Open("/tmp/cache.kch", kc.READ)
+        db := kc.Open("/tmp/cache.kch", kc.WRITE)
         defer db.Close()
 
         db.Set("names", "Maria|João|José")
         db.SetInt("hits", 500)
 
-        for (i := 0; i < 100; i++) {
+        for i := 0; i < 100; i++ {
             db.Increment("hits", 1)
         }
     }
