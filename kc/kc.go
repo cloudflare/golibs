@@ -18,14 +18,6 @@ const (
 	WRITE
 )
 
-// ApplyFunc, function used as parameter to the Apply and AsyncApply
-// methods. The function receives three parameters:
-//
-//		key: the record key
-//		value: the record value
-//		args: extra arguments passed to Apply method
-type ApplyFunc func (key string, value interface{}, args ...interface{})
-
 // Type used for errors using the gokabinet library.
 // It implements the builting error interface.
 type KCError string
@@ -222,33 +214,6 @@ func (d *DB) Increment(key string, number int) (int, error) {
 	}
 
 	return int(v), nil
-}
-
-// Applies a funcion to all records in the database
-//
-// The function is called with the key and the value as parameters.
-// All extra arguments passed to Apply are used in the call to f
-func (d *DB) Apply(f ApplyFunc, args ...interface{}) {
-	var keyLen, valueLen C.size_t
-	var valueBuffer *C.char
-	defer C.free(unsafe.Pointer(valueBuffer))
-
-	cur := C.kcdbcursor(d.db)
-	defer C.kccurdel(cur)
-
-	C.kccurjump(cur)
-
-	var next = func() *C.char {
-		return C.kccurget(cur, &keyLen, &valueBuffer, &valueLen, 1)
-	}
-
-	for keyBuffer := next(); keyBuffer != nil; keyBuffer = next() {
-		key := C.GoString(keyBuffer)
-		C.free(unsafe.Pointer(keyBuffer))
-
-		value := C.GoString(valueBuffer)
-		f(key, value, args...)
-	}
 }
 
 // Closes the database, make sure you always call this method after using the database.
