@@ -29,9 +29,9 @@ func (err KCError) Error() string {
 // The basic type for the gokabinet library. Holds an unexported instance
 // of the database, for interactions.
 type DB struct {
-	db   *C.KCDB
+	db       *C.KCDB
 	filepath string
-	mode int
+	mode     int
 }
 
 // Returns a readable string to the last occurred error in the database
@@ -182,7 +182,7 @@ func (d *DB) GetInt(key string) (int, error) {
 	v, err := d.Get(key)
 	if err != nil {
 		return 0, err
-	} else if (v != "") {
+	} else if v != "" {
 		err := KCError("Error: don't use GetInt to get a non-numeric record")
 		return 0, err
 	}

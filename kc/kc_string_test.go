@@ -125,7 +125,7 @@ func TestShouldNotBeAbleToAppendStringsToNumericRecords(t *testing.T) {
 	defer db.Close()
 
 	db.SetInt("age", 50)
-	if err := db.Append("age", "50"); err == nil || !strings.Contains(err.Error(), "numeric record"){
+	if err := db.Append("age", "50"); err == nil || !strings.Contains(err.Error(), "numeric record") {
 		t.Errorf("Should not be able to append a string to a numeric record, and provide a descriptive message for the error")
 	}
 }

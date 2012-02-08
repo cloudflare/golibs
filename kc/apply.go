@@ -17,7 +17,7 @@ import (
 //		key: the record key
 //		value: the record value
 //		args: extra arguments passed to Apply method
-type ApplyFunc func (key string, value interface{}, args ...interface{})
+type ApplyFunc func(key string, value interface{}, args ...interface{})
 
 // Waiter interface, provides the Wait method
 //

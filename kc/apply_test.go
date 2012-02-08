@@ -5,7 +5,7 @@ import (
 )
 
 func TestShouldBeAbleToApplyAFunctionToEachRecordsInTheDatabase(t *testing.T) {
-	urls := map[string]string {
+	urls := map[string]string{
 		"jsoP": "http://weekly.golang.org/",
 		"9odk": "http://groups.google.com/group/golang-nuts",
 		"cbrt": "http://cobrateam.info",
@@ -24,7 +24,7 @@ func TestShouldBeAbleToApplyAFunctionToEachRecordsInTheDatabase(t *testing.T) {
 
 	applied := map[string]string{}
 
-	db.Apply(func (key string, value interface{}, args ...interface{}) {
+	db.Apply(func(key string, value interface{}, args ...interface{}) {
 		applied[key] = value.(string)
 	})
 
@@ -34,14 +34,14 @@ func TestShouldBeAbleToApplyAFunctionToEachRecordsInTheDatabase(t *testing.T) {
 }
 
 func TestShouldBeAbleToApplyAfunctiontoEachRecordInTheDatabaseWithExtraArguments(t *testing.T) {
-	urls := map[string]string {
+	urls := map[string]string{
 		"jsoP": "http://weekly.golang.org/",
 		"9odk": "http://groups.google.com/group/golang-nuts",
 		"cbrt": "http://cobrateam.info",
 		"SpLR": "http://splinter.cobrateam.info",
 	}
 
-	expected := map[string]string {}
+	expected := map[string]string{}
 	for k, v := range urls {
 		expected[k] = v + "extra1" + "extra2"
 	}
@@ -58,7 +58,7 @@ func TestShouldBeAbleToApplyAfunctiontoEachRecordInTheDatabaseWithExtraArguments
 
 	applied := map[string]string{}
 
-	db.Apply(func (key string, value interface{}, args ...interface{}) {
+	db.Apply(func(key string, value interface{}, args ...interface{}) {
 		var extraString string
 		for _, a := range args {
 			extraString += a.(string)
@@ -73,7 +73,7 @@ func TestShouldBeAbleToApplyAfunctiontoEachRecordInTheDatabaseWithExtraArguments
 }
 
 func TestShouldBeAbleToAsynchronouslyApplyAFunctionToAllRecordsInTheDatabase(t *testing.T) {
-	urls := map[string]string {
+	urls := map[string]string{
 		"jsoP": "http://weekly.golang.org/",
 		"9odk": "http://groups.google.com/group/golang-nuts",
 		"cbrt": "http://cobrateam.info",
@@ -92,7 +92,7 @@ func TestShouldBeAbleToAsynchronouslyApplyAFunctionToAllRecordsInTheDatabase(t *
 
 	applied := map[string]string{}
 
-	r := db.AsyncApply(func (key string, value interface{}, args ...interface{}) {
+	r := db.AsyncApply(func(key string, value interface{}, args ...interface{}) {
 		applied[key] = value.(string)
 	})
 	r.Wait()
