@@ -125,7 +125,7 @@ func TestIncrementShouldReturnAnErrorIfTheIncrementedValueIsANonNumericRecord(t 
 
 	db.Set("name", "Francisco Souza")
 	if _, err := db.Increment("name", 1); err == nil || !strings.Contains(err.Error(), "non-numeric record") {
-		t.Errorf("Should return an error message when trying to increment a non-numeric record %s")
+		t.Errorf("Should return an error message when trying to increment a non-numeric record")
 	}
 }
 
