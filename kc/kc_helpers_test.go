@@ -2,11 +2,12 @@ package kc
 
 import (
 	"os"
+	"syscall"
 )
 
 func Exists(path string) bool {
 	_, err := os.Stat(path)
-	return err == nil || err.(*os.PathError).Err != os.ENOENT
+	return err == nil || err.(*os.PathError).Err != syscall.ENOENT
 }
 
 func Remove(path string) {
