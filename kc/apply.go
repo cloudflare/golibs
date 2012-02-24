@@ -8,6 +8,7 @@ package kc
 import "C"
 
 import (
+	"sync"
 	"unsafe"
 )
 
@@ -27,15 +28,15 @@ type Waiter interface {
 }
 
 type ApplyResult struct {
-	finish chan int
+	wg sync.WaitGroup
 }
 
 func NewApplyResult() *ApplyResult {
-	return &ApplyResult{finish: make(chan int)}
+	return &ApplyResult{}
 }
 
 func (r *ApplyResult) Wait() {
-	<-r.finish
+	r.wg.Wait()
 }
 
 // Applies a function to all records in the database
@@ -69,10 +70,30 @@ func (d *DB) Apply(f ApplyFunc, args ...interface{}) {
 // you can wait for the applying to finish
 func (d *DB) AsyncApply(f ApplyFunc, args ...interface{}) Waiter {
 	r := NewApplyResult()
-	go func() {
-		d.Apply(f, args...)
-		r.finish <- 1
-	}()
+	var keyLen, valueLen C.size_t
+	var valueBuffer *C.char
+	defer C.free(unsafe.Pointer(valueBuffer))
+
+	cur := C.kcdbcursor(d.db)
+	defer C.kccurdel(cur)
+
+	C.kccurjump(cur)
+
+	var next = func() *C.char {
+		return C.kccurget(cur, &keyLen, &valueBuffer, &valueLen, 1)
+	}
+
+	for keyBuffer := next(); keyBuffer != nil; keyBuffer = next() {
+		key := C.GoString(keyBuffer)
+		C.free(unsafe.Pointer(keyBuffer))
+
+		value := C.GoString(valueBuffer)
+		r.wg.Add(1)
+		go func() {
+			f(key, value, args...)
+			r.wg.Done()
+		}()
+	}
 
 	return r
 }
