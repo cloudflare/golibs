@@ -4,12 +4,26 @@ package kc
 #cgo CFLAGS: -I/usr/local/include
 #cgo LDFLAGS: -L/usr/local/lib -lkyotocabinet
 #include <kclangc.h>
+
+typedef struct
+{
+	char *key;
+	const char *value;
+} _pair;
+
+_pair gokccurget(KCCUR *cur) {
+	_pair p;
+	size_t ksiz, vsiz;
+	const char *argvbuf;
+	p.key = kccurget(cur, &ksiz, &argvbuf, &vsiz, 1);
+	p.value = argvbuf;
+	return p;
+}
 */
 import "C"
 
 import (
 	"sync"
-	"unsafe"
 )
 
 // ApplyFunc, function used as parameter to the Apply and AsyncApply
@@ -44,24 +58,11 @@ func (r *ApplyResult) Wait() {
 // The function is called with the key and the value as parameters.
 // All extra arguments passed to Apply are used in the call to f
 func (d *DB) Apply(f ApplyFunc, args ...interface{}) {
-	var keyLen, valueLen C.size_t
-	var valueBuffer *C.char
-	defer C.free(unsafe.Pointer(valueBuffer))
-
 	cur := C.kcdbcursor(d.db)
 	defer C.kccurdel(cur)
-
 	C.kccurjump(cur)
 
-	var next = func() *C.char {
-		return C.kccurget(cur, &keyLen, &valueBuffer, &valueLen, 1)
-	}
-
-	for keyBuffer := next(); keyBuffer != nil; keyBuffer = next() {
-		key := C.GoString(keyBuffer)
-		C.free(unsafe.Pointer(keyBuffer))
-
-		value := C.GoString(valueBuffer)
+	for key, value := next(cur); value != ""; key, value = next(cur) {
 		f(key, value, args...)
 	}
 }
@@ -70,24 +71,12 @@ func (d *DB) Apply(f ApplyFunc, args ...interface{}) {
 // you can wait for the applying to finish
 func (d *DB) AsyncApply(f ApplyFunc, args ...interface{}) Waiter {
 	r := NewApplyResult()
-	var keyLen, valueLen C.size_t
-	var valueBuffer *C.char
-	defer C.free(unsafe.Pointer(valueBuffer))
 
 	cur := C.kcdbcursor(d.db)
 	defer C.kccurdel(cur)
-
 	C.kccurjump(cur)
 
-	var next = func() *C.char {
-		return C.kccurget(cur, &keyLen, &valueBuffer, &valueLen, 1)
-	}
-
-	for keyBuffer := next(); keyBuffer != nil; keyBuffer = next() {
-		key := C.GoString(keyBuffer)
-		C.free(unsafe.Pointer(keyBuffer))
-
-		value := C.GoString(valueBuffer)
+	for key, value := next(cur); value != ""; key, value = next(cur) {
 		r.wg.Add(1)
 		go func() {
 			f(key, value, args...)
@@ -96,4 +85,15 @@ func (d *DB) AsyncApply(f ApplyFunc, args ...interface{}) Waiter {
 	}
 
 	return r
+}
+
+func next(cur *C.KCCUR) (key, value string) {
+	pair := C.gokccurget(cur)
+	key = C.GoString(pair.key)
+
+	if pair.value != nil {
+		value = C.GoString(pair.value)
+	}
+
+	return
 }
