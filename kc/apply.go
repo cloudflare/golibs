@@ -4,30 +4,7 @@ package kc
 #cgo CFLAGS: -I/usr/local/include
 #cgo LDFLAGS: -L/usr/local/lib -lkyotocabinet
 #include <kclangc.h>
-
-typedef struct
-{
-	char *key;
-	const char *value;
-} _pair;
-
-void
-free_pair(_pair p) {
-	if (p.key != NULL) {
-		free(p.key);
-		p.key = NULL;
-	}
-}
-
-_pair
-gokccurget(KCCUR *cur) {
-	_pair p;
-	size_t ksiz, vsiz;
-	const char *argvbuf;
-	p.key = kccurget(cur, &ksiz, &argvbuf, &vsiz, 1);
-	p.value = argvbuf;
-	return p;
-}
+#include "kcgo.h"
 */
 import "C"
 
