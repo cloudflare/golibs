@@ -16,7 +16,7 @@ func Remove(path string) {
 	}
 }
 
-func areMapsEqual(m1, m2 map[string]string) bool {
+func areStringMapsEqual(m1, m2 map[string]string) bool {
 	for k, v := range m1 {
 		if v != m2[k] {
 			return false

@@ -28,7 +28,7 @@ func TestShouldBeAbleToApplyAFunctionToEachRecordsInTheDatabase(t *testing.T) {
 		applied[key] = value.(string)
 	})
 
-	if !areMapsEqual(urls, applied) {
+	if !areStringMapsEqual(urls, applied) {
 		t.Errorf("Should apply the function")
 	}
 }
@@ -67,7 +67,7 @@ func TestShouldBeAbleToApplyAfunctiontoEachRecordInTheDatabaseWithExtraArguments
 		applied[key] = value.(string) + extraString
 	}, "extra1", "extra2")
 
-	if !areMapsEqual(expected, applied) {
+	if !areStringMapsEqual(expected, applied) {
 		t.Errorf("Should apply the function with extra arguments")
 	}
 }
@@ -97,7 +97,7 @@ func TestShouldBeAbleToAsynchronouslyApplyAFunctionToAllRecordsInTheDatabase(t *
 	})
 	r.Wait()
 
-	if !areMapsEqual(urls, applied) {
+	if !areStringMapsEqual(urls, applied) {
 		t.Errorf("Should apply the function")
 	}
 }
