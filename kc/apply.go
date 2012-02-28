@@ -11,7 +11,16 @@ typedef struct
 	const char *value;
 } _pair;
 
-_pair gokccurget(KCCUR *cur) {
+void
+free_pair(_pair p) {
+	if (p.key != NULL) {
+		free(p.key);
+		p.key = NULL;
+	}
+}
+
+_pair
+gokccurget(KCCUR *cur) {
 	_pair p;
 	size_t ksiz, vsiz;
 	const char *argvbuf;
@@ -94,6 +103,8 @@ func next(cur *C.KCCUR) (key, value string) {
 	if pair.value != nil {
 		value = C.GoString(pair.value)
 	}
+
+	C.free_pair(pair)
 
 	return
 }
