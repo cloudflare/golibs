@@ -1,5 +1,5 @@
 #include <kclangc.h>
-#include "kcgo.h"
+#include "kc.h"
 
 void
 free_pair(_pair p) {

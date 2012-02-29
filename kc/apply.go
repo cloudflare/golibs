@@ -4,7 +4,7 @@ package kc
 #cgo CFLAGS: -I/usr/local/include
 #cgo LDFLAGS: -L/usr/local/lib -lkyotocabinet
 #include <kclangc.h>
-#include "kcgo.h"
+#include "kc.h"
 */
 import "C"
 
