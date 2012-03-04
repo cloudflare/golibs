@@ -62,10 +62,18 @@ func (d *DB) AsyncApply(f ApplyFunc, args ...interface{}) Waiter {
 	defer C.kccurdel(cur)
 	C.kccurjump(cur)
 
+	keys, values := []string{}, []string{}
+
 	for key, value := next(cur); value != ""; key, value = next(cur) {
-		r.wg.Add(1)
+		keys = append(keys, key)
+		values = append(values, value)
+	}
+
+	r.wg.Add(len(keys))
+	for i, key := range keys {
+		k, v := key, values[i]
 		go func() {
-			f(key, value, args...)
+			f(k, v, args...)
 			r.wg.Done()
 		}()
 	}
