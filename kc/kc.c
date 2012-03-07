@@ -2,7 +2,8 @@
 #include "kc.h"
 
 void
-free_pair(_pair p) {
+free_pair(_pair p)
+{
 	if (p.key != NULL) {
 		free(p.key);
 		p.key = NULL;
@@ -10,7 +11,8 @@ free_pair(_pair p) {
 }
 
 _pair
-gokccurget(KCCUR *cur) {
+gokccurget(KCCUR *cur)
+{
 	_pair p;
 	size_t ksiz, vsiz;
 	const char *argvbuf;
