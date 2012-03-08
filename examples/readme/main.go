@@ -1,6 +1,6 @@
-/*
+/**
 * Example from README
-*/
+**/
 package main
 
 import (
