@@ -1,6 +1,8 @@
 package kc
 
 import (
+	"io/ioutil"
+	"strings"
 	"testing"
 )
 
@@ -99,5 +101,31 @@ func TestShouldBeAbleToAsynchronouslyApplyAFunctionToAllRecordsInTheDatabase(t *
 
 	if !areStringMapsEqual(urls, applied) {
 		t.Errorf("Should apply the function")
+	}
+}
+
+func BenchmarkSetAndApply(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		if c, err := ioutil.ReadFile("testdata/urls.txt"); err == nil {
+			s := string(c)
+			filepath := "/tmp/shorturs.kch"
+			if db, err := Open(filepath, WRITE); err == nil {
+				parts := strings.Split(s, "\n")
+				for _, part := range parts {
+					keyAndValue := strings.Split(part, "\t")
+					if len(keyAndValue) > 1 {
+						db.Set(keyAndValue[0], keyAndValue[1])
+					}
+				}
+
+				applied := make(map[string]string)
+				toApply := func(key string, value interface{}, args ...interface{}) {
+					applied[key] = value.(string)
+				}
+
+				db.Apply(toApply)
+				db.Close()
+			}
+		}
 	}
 }
