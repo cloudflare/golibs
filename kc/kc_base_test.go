@@ -2,6 +2,7 @@ package kc
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"testing"
 )
@@ -77,5 +78,29 @@ func TestShouldNotBeAbleToRemoveARecordInReadOnlyMode(t *testing.T) {
 	err := db.Remove("instrument")
 	if err == nil || !strings.Contains(err.Error(), "read-only mode") {
 		t.Errorf("Should not be able to remove a record in read-only mode")
+	}
+}
+
+func BenchmarkSetAndGet(b *testing.B) {
+	keys := []string{}
+	for i := 0; i < b.N; i++ {
+		if c, err := ioutil.ReadFile("testdata/urls.txt"); err == nil {
+			s := string(c)
+			filepath := "/tmp/shorturs.kch"
+			if db, err := Open(filepath, WRITE); err == nil {
+				parts := strings.Split(s, "\n")
+				for _, part := range parts {
+					keyAndValue := strings.Split(part, "\t")
+					if len(keyAndValue) > 1 {
+						db.Set(keyAndValue[0], keyAndValue[1])
+						keys = append(keys, keyAndValue[0])
+					}
+				}
+
+				for _, key := range keys {
+					db.Get(key)
+				}
+			}
+		}
 	}
 }
