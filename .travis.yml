@@ -6,7 +6,7 @@ install:
   - pushd /tmp
   - curl -4LO http://fallabs.com/kyotocabinet/pkg/kyotocabinet-1.2.76.tar.gz
   - tar -xzf kyotocabinet-1.2.76.tar.gz
-  - pushd kyotocabinet-1.2.7
+  - pushd kyotocabinet-1.2.76
   - ./configure
   - make
   - sudo make install
