@@ -12,6 +12,7 @@ install:
   - sudo make install
   - popd
   - popd
+  - sudo ldconfig
 script:
   - pushd kc
   - go test
