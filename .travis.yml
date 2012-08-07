@@ -3,7 +3,16 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install zlib1g-dev curl -qq
 install:
-  - cd /tmp && curl -4LO http://fallabs.com/kyotocabinet/pkg/kyotocabinet-1.2.76.tar.gz
-  - cd /tmp && tar -xzf kyotocabinet-1.2.76.tar.gz
-  - cd /tmp/kyotocabinet-1.2.76 && ./configure && make && sudo make install
-script: cd kc && go test
+  - pushd /tmp
+  - curl -4LO http://fallabs.com/kyotocabinet/pkg/kyotocabinet-1.2.76.tar.gz
+  - tar -xzf kyotocabinet-1.2.76.tar.gz
+  - pushd kyotocabinet-1.2.7
+  - ./configure
+  - make
+  - sudo make install
+  - popd
+  - popd
+script:
+  - pushd kc
+  - go test
+  - popd
