@@ -33,14 +33,12 @@ func GetHandler() VisitsHandler {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	return VisitsHandler{db: db}
 }
 
 func main() {
 	h := GetHandler()
 	defer h.CloseDB()
-
 	http.Handle("/", h)
 	if err := http.ListenAndServe(":6000", nil); err != nil {
 		log.Fatal(err)

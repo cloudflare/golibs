@@ -51,7 +51,6 @@ func (d *DB) Apply(f ApplyFunc, args ...interface{}) {
 	cur := C.kcdbcursor(d.db)
 	defer C.kccurdel(cur)
 	C.kccurjump(cur)
-
 	for key, value := next(cur); value != ""; key, value = next(cur) {
 		f(key, value, args...)
 	}
@@ -61,11 +60,9 @@ func (d *DB) Apply(f ApplyFunc, args ...interface{}) {
 // you can wait for the applying to finish
 func (d *DB) AsyncApply(f ApplyFunc, args ...interface{}) Waiter {
 	r := NewApplyResult()
-
 	cur := C.kcdbcursor(d.db)
 	defer C.kccurdel(cur)
 	C.kccurjump(cur)
-
 	for key, value := next(cur); value != ""; key, value = next(cur) {
 		r.wg.Add(1)
 		k, v := key, value
@@ -74,19 +71,15 @@ func (d *DB) AsyncApply(f ApplyFunc, args ...interface{}) Waiter {
 			r.wg.Done()
 		}()
 	}
-
 	return r
 }
 
 func next(cur *C.KCCUR) (key, value string) {
 	pair := C.gokccurget(cur)
 	key = C.GoString(pair.key)
-
 	if pair.value != nil {
 		value = C.GoString(pair.value)
 	}
-
 	C.free_pair(pair)
-
 	return
 }
