@@ -13,19 +13,19 @@ import (
 
 func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 
-	if !Exists(filepath) {
+	if !exists(filepath) {
 		t.Errorf("%s should exists, but it doesn't", filepath)
 	}
 }
 
 func TestShouldHoldTheFilePathInTheDBObject(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	if db.filepath != filepath {
@@ -44,7 +44,7 @@ func TestShouldReportADescriptiveErrorMessageWhenFailToOpenADatabaseForWrite(t *
 
 func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
 	filepath := "/tmp/musicias.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	db.Set("name", "Steve Vai")
 	db.Close()
@@ -64,7 +64,7 @@ func TestShouldHaveConstantsForReadAndWrite(t *testing.T) {
 
 func TestShouldNotBeAbleToRemoveARecordInReadOnlyMode(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	db.Close()
 	db, _ = Open(filepath, READ)

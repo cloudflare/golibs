@@ -11,7 +11,7 @@ import (
 
 func TestShouldBeAbleToSetAndGetIntegerRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.SetInt("albums", 10)
@@ -22,7 +22,7 @@ func TestShouldBeAbleToSetAndGetIntegerRecord(t *testing.T) {
 
 func TestSetIntShouldOverrideANonNumericRecords(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.Set("albums", "White Album")
@@ -34,7 +34,7 @@ func TestSetIntShouldOverrideANonNumericRecords(t *testing.T) {
 
 func TestSetIntShouldOverrideNumericRecords(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.SetInt("albums", 10)
@@ -46,7 +46,7 @@ func TestSetIntShouldOverrideNumericRecords(t *testing.T) {
 
 func TestSetIntShouldNotWorkInReadOnlyMode(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	db.Close()
 	db, _ = Open(filepath, READ)
@@ -58,7 +58,7 @@ func TestSetIntShouldNotWorkInReadOnlyMode(t *testing.T) {
 
 func TestGetIntShoulReturnAnErrorIfTheGivenKeyDoesNotExit(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	if _, err := db.GetInt("albums"); err == nil || !strings.Contains(err.Error(), "no record") {
@@ -68,7 +68,7 @@ func TestGetIntShoulReturnAnErrorIfTheGivenKeyDoesNotExit(t *testing.T) {
 
 func TestGetIntShouldRetornAnErrorIfTheGivenKeyIsANonNumericRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.Set("name", "Mariah")
@@ -79,7 +79,7 @@ func TestGetIntShouldRetornAnErrorIfTheGivenKeyIsANonNumericRecord(t *testing.T)
 
 func TestIncrementShouldIncrementTheValueOfANumericRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.SetInt("people", 1)
@@ -91,7 +91,7 @@ func TestIncrementShouldIncrementTheValueOfANumericRecord(t *testing.T) {
 
 func TestIncrementShouldCrateTheRecordWhenItDoesNotExist(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.Increment("people", 100)
@@ -102,7 +102,7 @@ func TestIncrementShouldCrateTheRecordWhenItDoesNotExist(t *testing.T) {
 
 func TestIncrementShouldReturnAnErrorIfTheIncrementedValueIsANonNumericRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.Set("name", "Francisco Souza")
@@ -113,7 +113,7 @@ func TestIncrementShouldReturnAnErrorIfTheIncrementedValueIsANonNumericRecord(t 
 
 func TestIncrementShouldReturnTheIncrementedValue(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.Increment("people", 100)
@@ -125,7 +125,7 @@ func TestIncrementShouldReturnTheIncrementedValue(t *testing.T) {
 
 func TestShoulBeAbleToRemoveANumericRecordFromTheDatabaseUsingTheRemoveMethod(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	if db, err := Open(filepath, WRITE); err == nil {
 		db.SetInt("discs", 20)
 		db.Remove("discs")

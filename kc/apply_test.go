@@ -18,7 +18,7 @@ func TestShouldBeAbleToApplyAFunctionToEachRecordsInTheDatabase(t *testing.T) {
 		"SpLR": "http://splinter.cobrateam.info",
 	}
 	filepath := "/tmp/shorturls.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	for k, v := range urls {
@@ -45,7 +45,7 @@ func TestShouldBeAbleToApplyAfunctiontoEachRecordInTheDatabaseWithExtraArguments
 		expected[k] = v + "extra1" + "extra2"
 	}
 	filepath := "/tmp/shorturls.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	for k, v := range urls {
@@ -72,7 +72,7 @@ func TestShouldBeAbleToAsynchronouslyApplyAFunctionToAllRecordsInTheDatabase(t *
 		"SpLR": "http://splinter.cobrateam.info",
 	}
 	filepath := "/tmp/shorturls.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	for k, v := range urls {

@@ -9,13 +9,13 @@ import (
 	"syscall"
 )
 
-func Exists(path string) bool {
+func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil || err.(*os.PathError).Err != syscall.ENOENT
 }
 
-func Remove(path string) {
-	if Exists(path) {
+func remove(path string) {
+	if exists(path) {
 		os.Remove(path)
 	}
 }

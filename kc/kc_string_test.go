@@ -11,7 +11,7 @@ import (
 
 func TestShouldBeAbleToSetAndGetAStringRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	if db, err := Open(filepath, WRITE); err == nil {
 		defer db.Close()
 
@@ -26,7 +26,7 @@ func TestShouldBeAbleToSetAndGetAStringRecord(t *testing.T) {
 
 func TestShouldReturnErrorExplainingWhenAStringRecordIsNotFound(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	if db, err := Open(filepath, WRITE); err == nil {
 		defer db.Close()
 		_, err := db.Get("name")
@@ -40,7 +40,7 @@ func TestShouldReturnErrorExplainingWhenAStringRecordIsNotFound(t *testing.T) {
 
 func TestShouldNotBeAbleToSetAStringRecordInREADMode(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE) // creating the file
 	db.Close()
 	db, _ = Open(filepath, READ)
@@ -53,7 +53,7 @@ func TestShouldNotBeAbleToSetAStringRecordInREADMode(t *testing.T) {
 
 func TestShouldBeAbleToRemoveAStringRecordFromTheDatabase(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	if db, err := Open(filepath, WRITE); err == nil {
 		db.Set("name", "Steve Vai")
 		db.Set("instrument", "Guitar")
@@ -69,7 +69,7 @@ func TestShouldBeAbleToRemoveAStringRecordFromTheDatabase(t *testing.T) {
 
 func TestShouldReturnAnErrorMessageWhenTryingToRemoveANonPresentStringRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	if db, err := Open(filepath, WRITE); err == nil {
 		err := db.Remove("instrument")
 		if err == nil || !strings.Contains(err.Error(), "no record") {
@@ -82,7 +82,7 @@ func TestShouldReturnAnErrorMessageWhenTryingToRemoveANonPresentStringRecord(t *
 
 func TestShouldBeAbleToAppendAStringToAStringRecord(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	if db, err := Open(filepath, WRITE); err == nil {
 		db.Set("name", "Steve")
 		db.Append("name", " Vai")
@@ -96,7 +96,7 @@ func TestShouldBeAbleToAppendAStringToAStringRecord(t *testing.T) {
 
 func TestShouldNotBeAbleToAppendAStringToAStringRecordInREADMode(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	db.Set("name", "Steve")
 	db.Close()
@@ -109,7 +109,7 @@ func TestShouldNotBeAbleToAppendAStringToAStringRecordInREADMode(t *testing.T) {
 
 func TestShouldNotBeAbleToAppendStringsToNumericRecords(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
-	defer Remove(filepath)
+	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	db.SetInt("age", 50)
