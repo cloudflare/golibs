@@ -3,9 +3,9 @@ Go bindings for kyoto cabinet database
 More details on Kyoto Cabinet and how to install it (you need its core
 library to use with): http://fallabs.com/kyotocabinet/
 
-You can install gokabinet using goinstall:
+You can install gokabinet using go get:
 
-    % goinstall github.com/fsouza/gokabinet/kc
+    % go get github.com/fsouza/gokabinet/kc
 
 After installing it, you can use in your Go code. Here is a simple example:
 
