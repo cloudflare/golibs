@@ -5,8 +5,7 @@
 package kc
 
 /*
-#cgo CFLAGS: -I/usr/local/include
-#cgo LDFLAGS: -L/usr/local/lib -lkyotocabinet
+#cgo pkg-config: kyotocabinet
 #include <kclangc.h>
 */
 import "C"
