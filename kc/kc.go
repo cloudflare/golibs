@@ -24,15 +24,15 @@ const (
 	WRITE
 )
 
-// Type used for errors using the gokabinet library.
-// It implements the builting error interface.
+// KCError is used for errors using the gokabinet library.  It implements the
+// builtin error interface.
 type KCError string
 
 func (err KCError) Error() string {
 	return string(err)
 }
 
-// The basic type for the gokabinet library. Holds an unexported instance
+// DB is the basic type for the gokabinet library. Holds an unexported instance
 // of the database, for interactions.
 type DB struct {
 	db       *C.KCDB
@@ -40,13 +40,15 @@ type DB struct {
 	mode     int
 }
 
-// Returns a readable string to the last occurred error in the database
+// LastError returns a readable string to the last occurred error in the
+// database.
 func (d *DB) LastError() string {
 	errMsg := C.GoString(C.kcecodename(C.kcdbecode(d.db)))
 	return errMsg
 }
 
-// Adds a record to the database. Currently, it's able to store only string values.
+// Set adds a record to the database. Currently, it's able to store only string
+// values.
 //
 // Returns a KCError instance in case of errors, otherwise, returns nil.
 func (d *DB) Set(key, value string) error {
@@ -67,13 +69,13 @@ func (d *DB) Set(key, value string) error {
 	return nil
 }
 
-// This methods appends a string to the end of the value of a string
-// record. It can't append any value to a numeric record.
+// Append appends a string to the end of the value of a string record. It can't
+// append any value to a numeric record.
 //
 // Returns a KCError instance when trying to append a string to a numeric
 // record and when trying to append a string in read-only mode.
 //
-// If the append is successful, the method returns nil
+// If the append is successful, the method returns nil.
 func (d *DB) Append(key, value string) error {
 	if d.mode < WRITE {
 		return KCError("The database was opened in read-only mode, you can't append strings to records")
@@ -94,10 +96,10 @@ func (d *DB) Append(key, value string) error {
 	return nil
 }
 
-// Gets a record in the database by its key, decoding from gob format.
+// Get gets a record in the database by its key, decoding from gob format.
 //
-// Returns in in case of success. In case of errors a KCError instance is
-// returned.
+// Returns nil in case of success. In case of errors, it returns a KCError
+// instance explaining what happened.
 func (d *DB) GetGob(key string, e interface{}) error {
 	data, err := d.Get(key)
 	if err != nil {
@@ -111,7 +113,7 @@ func (d *DB) GetGob(key string, e interface{}) error {
 	return nil
 }
 
-// Adds a record to the database, stored in gob format.
+// SetGob adds a record to the database, stored in gob format.
 //
 // Returns a KCError instance in case of errors, otherwise, returns nil.
 func (d *DB) SetGob(key string, e interface{}) error {
@@ -126,11 +128,11 @@ func (d *DB) SetGob(key string, e interface{}) error {
 	return err
 }
 
-// Gets a record in the database by its key.
+// Get retrieves a record in the database by its key.
 //
-// Returns the string value and nil in case of success, in case of
-// errors, return a zero-valued string and an KCError instance (including
-// when the key doesn't exist in the database).
+// Returns the string value and nil in case of success, in case of errors,
+// return a zero-valued string and an KCError instance (including when the key
+// doesn't exist in the database).
 func (d *DB) Get(key string) (string, error) {
 	var resultLen C.size_t
 	cKey := C.CString(key)
@@ -167,10 +169,10 @@ func (d *DB) Remove(key string) error {
 	return nil
 }
 
-// Sets the value of an integer record, creating it when there is no
-// record correspondent to the given key
+// SetInt defines the value of an integer record, creating it when there is no
+// record corresponding to the given key.
 //
-// Returns an KCError in case of errors setting the value
+// Returns an KCError in case of errors setting the value.
 func (d *DB) SetInt(key string, number int) error {
 	if d.mode < WRITE {
 		return KCError("SetInt doesn't work in read-only mode")
@@ -187,7 +189,7 @@ func (d *DB) SetInt(key string, number int) error {
 	return nil
 }
 
-// Gets a numeric record from the database
+// GetInt gets a numeric record from the database.
 //
 // In case of errors (e.g.: when the given key refers to a non-numeric record),
 // returns 0 and a KCError instance.
@@ -206,11 +208,11 @@ func (d *DB) GetInt(key string) (int, error) {
 	return int(number), nil
 }
 
-// Increments the value of a numeric record by a given number,
-// and return the incremented value
+// Increment increments the value of a numeric record by a given number, and
+// return the incremented value.
 //
-// In case of errors, returns 0 and a KCError instance with detailed
-// error message
+// In case of errors, returns 0 and a KCError instance with detailed error
+// message.
 func (d *DB) Increment(key string, number int) (int, error) {
 	cKey := C.CString(key)
 	defer C.free(unsafe.Pointer(cKey))
@@ -223,22 +225,23 @@ func (d *DB) Increment(key string, number int) (int, error) {
 	return int(v), nil
 }
 
-// Closes the database, make sure you always call this method after using the database.
+// Close closes the database, make sure you always call this method after using
+// the database.
 //
 // You can do it using the defer statement:
 //
-//     db := Open("my_db.kch", WRITE)
-//     defer db.Close()
+//     db := Open("my_db.kch", WRITE) defer db.Close()
 func (d *DB) Close() {
 	C.kcdbclose(d.db)
 	C.kcdbdel(d.db)
 }
 
-// Opens a database
+// Open opens a database.
+//
 // There are constants for the modes: READ and WRITE.
 //
-// The READ indicates read-only access to the database, the WRITE
-// indicates read and write access to the database (there isn't a write-only mode)
+// READ indicates read-only access to the database, and WRITE indicates read
+// and write access to the database (there is no write-only mode).
 func Open(dbfilepath string, mode int) (*DB, error) {
 	d := &DB{db: C.kcdbnew(), mode: mode, filepath: dbfilepath}
 	dbname := C.CString(dbfilepath)
