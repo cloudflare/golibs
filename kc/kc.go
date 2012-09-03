@@ -12,8 +12,9 @@ import "C"
 
 import (
 	"bytes"
-	"fmt"
 	"encoding/gob"
+	"fmt"
+	"strings"
 	"unsafe"
 )
 
@@ -98,22 +99,12 @@ func (d *DB) Append(key, value string) error {
 // Returns in in case of success. In case of errors a KCError instance is
 // returned.
 func (d *DB) GetGob(key string, e interface{}) error {
-	var resultLen C.size_t
-	cKey := C.CString(key)
-	defer C.free(unsafe.Pointer(cKey))
-	lKey := C.size_t(len(key))
-	cValue := C.kcdbget(d.db, cKey, lKey, &resultLen)
-	defer C.free(unsafe.Pointer(cValue))
-	if cValue == nil {
-		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
+	data, err := d.Get(key)
+	if err != nil {
 		return err
 	}
-
-	data := C.GoStringN(cValue, C.int(resultLen))
 	buffer := bytes.NewBufferString(data)
 	decoder := gob.NewDecoder(buffer)
-
 	if err := decoder.Decode(e); err != nil {
 		return KCError(fmt.Sprintf("Failed to decode the record with the key %s: %s", key, err))
 	}
@@ -127,12 +118,10 @@ func (d *DB) SetGob(key string, e interface{}) error {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
 	err := encoder.Encode(e)
-
 	if err != nil {
 		err = KCError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", e, key, err))
 		return err
 	}
-
 	err = d.Set(key, buffer.String())
 	return err
 }
@@ -154,7 +143,7 @@ func (d *DB) Get(key string) (string, error) {
 		err := KCError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
 		return "", err
 	}
-	return C.GoString(cValue), nil
+	return C.GoStringN(cValue, C.int(resultLen)), nil
 }
 
 // Removes a record from the database by its key.
@@ -206,8 +195,8 @@ func (d *DB) GetInt(key string) (int, error) {
 	v, err := d.Get(key)
 	if err != nil {
 		return 0, err
-	} else if v != "" {
-		err := KCError("Error: don't use GetInt to get a non-numeric record")
+	} else if strings.IndexRune(v, '\x00') != 0 {
+		err := KCError("Error: GetInt can't be used to get a non-numeric record")
 		return 0, err
 	}
 	cKey := C.CString(key)
