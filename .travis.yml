@@ -7,9 +7,9 @@ install:
   - curl -4LO http://fallabs.com/kyotocabinet/pkg/kyotocabinet-1.2.76.tar.gz
   - tar -xzf kyotocabinet-1.2.76.tar.gz
   - pushd kyotocabinet-1.2.76
-  - ./configure
-  - make
-  - sudo make install
+  - ./configure --quiet
+  - make --quiet
+  - sudo make install --quiet
   - popd
   - popd
   - sudo ldconfig
