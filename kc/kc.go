@@ -11,7 +11,9 @@ package kc
 import "C"
 
 import (
+	"bytes"
 	"fmt"
+	"encoding/gob"
 	"unsafe"
 )
 
@@ -89,6 +91,50 @@ func (d *DB) Append(key, value string) error {
 		return KCError(fmt.Sprintf("Failed to append a string to a record: %s", errMsg))
 	}
 	return nil
+}
+
+// Gets a record in the database by its key, decoding from gob format.
+//
+// Returns in in case of success. In case of errors a KCError instance is
+// returned.
+func (d *DB) GetGob(key string, e interface{}) error {
+	var resultLen C.size_t
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	lKey := C.size_t(len(key))
+	cValue := C.kcdbget(d.db, cKey, lKey, &resultLen)
+	defer C.free(unsafe.Pointer(cValue))
+	if cValue == nil {
+		errMsg := d.LastError()
+		err := KCError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
+		return err
+	}
+
+	data := C.GoStringN(cValue, C.int(resultLen))
+	buffer := bytes.NewBufferString(data)
+	decoder := gob.NewDecoder(buffer)
+
+	if err := decoder.Decode(e); err != nil {
+		return KCError(fmt.Sprintf("Failed to decode the record with the key %s: %s", key, err))
+	}
+	return nil
+}
+
+// Adds a record to the database, stored in gob format.
+//
+// Returns a KCError instance in case of errors, otherwise, returns nil.
+func (d *DB) SetGob(key string, e interface{}) error {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(e)
+
+	if err != nil {
+		err = KCError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", e, key, err))
+		return err
+	}
+
+	err = d.Set(key, buffer.String())
+	return err
 }
 
 // Gets a record in the database by its key.
