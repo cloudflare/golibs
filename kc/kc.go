@@ -285,7 +285,8 @@ func (d *DB) CompareAndSwap(key, old, new string) error {
 //
 // You can do it using the defer statement:
 //
-//     db := Open("my_db.kch", WRITE) defer db.Close()
+//     db := Open("my_db.kch", WRITE)
+//     defer db.Close()
 func (d *DB) Close() {
 	C.kcdbclose(d.db)
 	C.kcdbdel(d.db)
