@@ -76,6 +76,21 @@ func TestCount(t *testing.T) {
 	}
 }
 
+func TestCompareAndSwap(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	db.Set("name", "Steve Vai")
+	if err := db.CompareAndSwap("name", "Steve Vai", "Geddy Lee"); err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	if v, _ := db.Get("name"); v != "Geddy Lee" {
+		t.Errorf("Failed to swap-and-compare. Want Geddy Lee, got %s.", v)
+	}
+}
+
 func TestShouldHaveConstantsForReadAndWrite(t *testing.T) {
 	if READ != 1 || WRITE != 2 {
 		t.Errorf("constant READ should be 1 and WRITE should be 2")

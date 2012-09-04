@@ -172,7 +172,7 @@ func (d *DB) Get(key string) (string, error) {
 	return C.GoStringN(cValue, C.int(resultLen)), nil
 }
 
-// Removes a record from the database by its key.
+// Remove removes a record from the database by its key.
 //
 // Returns a KCError instance if there is no record for the given key,
 // or in case of other errors. The error instance contains a message
@@ -257,6 +257,27 @@ func (d *DB) Count() (int, error) {
 		err = KCError("Failed to get the number of records in the database: " + d.LastError())
 	}
 	return v, err
+}
+
+// CompareAndSwap performs a compare-and-swap operation, receiving three
+// parameters: key, old and new.
+//
+// If the value corresponding to key is equal to old, then it is set to new. If
+// the operation fails, this method returns a non-nil error.
+func (d *DB) CompareAndSwap(key, old, new string) error {
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	lKey := C.size_t(len(key))
+	cOldValue := C.CString(old)
+	defer C.free(unsafe.Pointer(cOldValue))
+	lOldValue := C.size_t(len(old))
+	cNewValue := C.CString(new)
+	defer C.free(unsafe.Pointer(cNewValue))
+	lNewValue := C.size_t(len(new))
+	if C.kcdbcas(d.db, cKey, lKey, cOldValue, lOldValue, cNewValue, lNewValue) == 0 {
+		return KCError("Failed to compare-and-swap: " + d.LastError())
+	}
+	return nil
 }
 
 // Close closes the database, make sure you always call this method after using
