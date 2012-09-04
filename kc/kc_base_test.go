@@ -28,8 +28,8 @@ func TestShouldHoldTheFilePathInTheDBObject(t *testing.T) {
 	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
-	if db.filepath != filepath {
-		t.Errorf("The filepath should be %s, but was %s", filepath, db.filepath)
+	if db.Path != filepath {
+		t.Errorf("The filepath should be %s, but was %s", filepath, db.Path)
 	}
 }
 

@@ -35,9 +35,11 @@ func (err KCError) Error() string {
 // DB is the basic type for the gokabinet library. Holds an unexported instance
 // of the database, for interactions.
 type DB struct {
-	db       *C.KCDB
-	filepath string
-	mode     int
+	db   *C.KCDB
+	mode int
+
+	// Path to the database file.
+	Path string
 }
 
 // LastError returns a readable string to the last occurred error in the
@@ -243,7 +245,7 @@ func (d *DB) Close() {
 // READ indicates read-only access to the database, and WRITE indicates read
 // and write access to the database (there is no write-only mode).
 func Open(dbfilepath string, mode int) (*DB, error) {
-	d := &DB{db: C.kcdbnew(), mode: mode, filepath: dbfilepath}
+	d := &DB{db: C.kcdbnew(), mode: mode, Path: dbfilepath}
 	dbname := C.CString(dbfilepath)
 	defer C.free(unsafe.Pointer(dbname))
 	cMode := C.uint32_t(C.KCOREADER)
