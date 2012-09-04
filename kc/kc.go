@@ -64,11 +64,11 @@ func Open(dbfilepath string, mode int) (*DB, error) {
 	return d, nil
 }
 
-// LastError returns a readable string to the last occurred error in the
-// database.
-func (d *DB) LastError() string {
+// LastError returns a KCError instance representing the last occurred error in
+// the database.
+func (d *DB) LastError() error {
 	errMsg := C.GoString(C.kcecodename(C.kcdbecode(d.db)))
-	return errMsg
+	return KCError(errMsg)
 }
 
 // Set adds a record to the database. Currently, it's able to store only string
@@ -254,7 +254,7 @@ func (d *DB) Count() (int, error) {
 	var err error
 	v := int(C.kcdbcount(d.db))
 	if v == -1 {
-		err = KCError("Failed to get the number of records in the database: " + d.LastError())
+		err = d.LastError()
 	}
 	return v, err
 }
@@ -275,7 +275,7 @@ func (d *DB) CompareAndSwap(key, old, new string) error {
 	defer C.free(unsafe.Pointer(cNewValue))
 	lNewValue := C.size_t(len(new))
 	if C.kcdbcas(d.db, cKey, lKey, cOldValue, lOldValue, cNewValue, lNewValue) == 0 {
-		return KCError("Failed to compare-and-swap: " + d.LastError())
+		return d.LastError()
 	}
 	return nil
 }
