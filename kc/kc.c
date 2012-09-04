@@ -5,22 +5,12 @@
 #include <kclangc.h>
 #include "kc.h"
 
-void
-free_pair(_pair p)
-{
-	if (p.key != NULL) {
-		free(p.key);
-		p.key = NULL;
-	}
-}
-
-_pair
+KCREC
 gokccurget(KCCUR *cur)
 {
-	_pair p;
-	size_t ksiz, vsiz;
+	KCREC p;
 	const char *argvbuf;
-	p.key = kccurget(cur, &ksiz, &argvbuf, &vsiz, 1);
-	p.value = argvbuf;
+	p.key.buf = kccurget(cur, &p.key.size, &argvbuf, &p.value.size, 1);
+	p.value.buf = (char *)argvbuf;
 	return p;
 }

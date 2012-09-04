@@ -76,10 +76,9 @@ func (d *DB) AsyncApply(f ApplyFunc, args ...interface{}) Waiter {
 
 func next(cur *C.KCCUR) (key, value string) {
 	pair := C.gokccurget(cur)
-	key = C.GoString(pair.key)
-	if pair.value != nil {
-		value = C.GoString(pair.value)
+	key = C.GoStringN(pair.key.buf, C.int(pair.key.size))
+	if pair.value.buf != nil {
+		value = C.GoStringN(pair.value.buf, C.int(pair.value.size))
 	}
-	C.free_pair(pair)
 	return
 }
