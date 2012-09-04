@@ -89,7 +89,7 @@ func TestIncrementShouldIncrementTheValueOfANumericRecord(t *testing.T) {
 	}
 }
 
-func TestIncrementShouldCrateTheRecordWhenItDoesNotExist(t *testing.T) {
+func TestIncrementShouldCreateTheRecordWhenItDoesNotExist(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
