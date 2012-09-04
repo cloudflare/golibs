@@ -120,7 +120,7 @@ func (d *DB) Append(key, value string) error {
 	return nil
 }
 
-// Get gets a record in the database by its key, decoding from gob format.
+// GetGob gets a record in the database by its key, decoding from gob format.
 //
 // Returns nil in case of success. In case of errors, it returns a KCError
 // instance explaining what happened.
