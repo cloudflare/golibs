@@ -43,7 +43,7 @@ func TestShouldReportADescriptiveErrorMessageWhenFailToOpenADatabaseForWrite(t *
 }
 
 func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
-	filepath := "/tmp/musicias.kch"
+	filepath := "/tmp/musicians.kch"
 	defer remove(filepath)
 	db, _ := Open(filepath, WRITE)
 	db.Set("name", "Steve Vai")
@@ -53,6 +53,26 @@ func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
 	name, _ := db.Get("name")
 	if name != "Steve Vai" {
 		t.Errorf("Should be able to write, close, open and get the record stored in write mode")
+	}
+}
+
+func TestCount(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	if n, err := db.Count(); err != nil {
+		t.Error(err)
+		t.FailNow()
+	} else if n != 0 {
+		t.Errorf("Count failed: want 0, got %d.", n)
+		t.FailNow()
+	}
+	db.Set("name", "Steve Vai")
+	if n, err := db.Count(); err != nil {
+		t.Error(err)
+	} else if n != 1 {
+		t.Errorf("Count failed: want 1, got %d.", n)
 	}
 }
 

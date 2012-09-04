@@ -42,6 +42,28 @@ type DB struct {
 	Path string
 }
 
+// Open opens a database.
+//
+// There are constants for the modes: READ and WRITE.
+//
+// READ indicates read-only access to the database, and WRITE indicates read
+// and write access to the database (there is no write-only mode).
+func Open(dbfilepath string, mode int) (*DB, error) {
+	d := &DB{db: C.kcdbnew(), mode: mode, Path: dbfilepath}
+	dbname := C.CString(dbfilepath)
+	defer C.free(unsafe.Pointer(dbname))
+	cMode := C.uint32_t(C.KCOREADER)
+	if mode > READ {
+		cMode = C.KCOWRITER | C.KCOCREATE
+	}
+	if C.kcdbopen(d.db, dbname, cMode) == 0 {
+		errMsg := d.LastError()
+		err := KCError(fmt.Sprintf("Error opening %s: %s", dbfilepath, errMsg))
+		return nil, err
+	}
+	return d, nil
+}
+
 // LastError returns a readable string to the last occurred error in the
 // database.
 func (d *DB) LastError() string {
@@ -227,6 +249,16 @@ func (d *DB) Increment(key string, number int) (int, error) {
 	return int(v), nil
 }
 
+// Count returns the number of records in the database.
+func (d *DB) Count() (int, error) {
+	var err error
+	v := int(C.kcdbcount(d.db))
+	if v == -1 {
+		err = KCError("Failed to get the number of records in the database: " + d.LastError())
+	}
+	return v, err
+}
+
 // Close closes the database, make sure you always call this method after using
 // the database.
 //
@@ -236,26 +268,4 @@ func (d *DB) Increment(key string, number int) (int, error) {
 func (d *DB) Close() {
 	C.kcdbclose(d.db)
 	C.kcdbdel(d.db)
-}
-
-// Open opens a database.
-//
-// There are constants for the modes: READ and WRITE.
-//
-// READ indicates read-only access to the database, and WRITE indicates read
-// and write access to the database (there is no write-only mode).
-func Open(dbfilepath string, mode int) (*DB, error) {
-	d := &DB{db: C.kcdbnew(), mode: mode, Path: dbfilepath}
-	dbname := C.CString(dbfilepath)
-	defer C.free(unsafe.Pointer(dbname))
-	cMode := C.uint32_t(C.KCOREADER)
-	if mode > READ {
-		cMode = C.KCOWRITER | C.KCOCREATE
-	}
-	if C.kcdbopen(d.db, dbname, cMode) == 0 {
-		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Error opening %s: %s", dbfilepath, errMsg))
-		return nil, err
-	}
-	return d, nil
 }
