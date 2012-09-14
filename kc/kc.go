@@ -58,8 +58,7 @@ func Open(dbfilepath string, mode int) (*DB, error) {
 	}
 	if C.kcdbopen(d.db, dbname, cMode) == 0 {
 		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Error opening %s: %s", dbfilepath, errMsg))
-		return nil, err
+		return nil, KCError(fmt.Sprintf("Error opening %s: %s", dbfilepath, errMsg))
 	}
 	return d, nil
 }
@@ -87,8 +86,7 @@ func (d *DB) Set(key, value string) error {
 	lValue := C.size_t(len(value))
 	if C.kcdbset(d.db, cKey, lKey, cValue, lValue) == 0 {
 		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", value, key, errMsg))
-		return err
+		return KCError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", value, key, errMsg))
 	}
 	return nil
 }
@@ -145,8 +143,7 @@ func (d *DB) SetGob(key string, e interface{}) error {
 	encoder := gob.NewEncoder(&buffer)
 	err := encoder.Encode(e)
 	if err != nil {
-		err = KCError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", e, key, err))
-		return err
+		return KCError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", e, key, err))
 	}
 	err = d.Set(key, buffer.String())
 	return err
@@ -166,8 +163,7 @@ func (d *DB) Get(key string) (string, error) {
 	defer C.free(unsafe.Pointer(cValue))
 	if cValue == nil {
 		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
-		return "", err
+		return "", KCError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
 	}
 	return C.GoStringN(cValue, C.int(resultLen)), nil
 }
@@ -187,8 +183,7 @@ func (d *DB) Remove(key string) error {
 	status := C.kcdbremove(d.db, cKey, lKey)
 	if status == 0 {
 		errMsg := d.LastError()
-		err := KCError(fmt.Sprintf("Failed to remove the record with the key %s: %s", key, errMsg))
-		return err
+		return KCError(fmt.Sprintf("Failed to remove the record with the key %s: %s", key, errMsg))
 	}
 	return nil
 }
@@ -222,8 +217,7 @@ func (d *DB) GetInt(key string) (int, error) {
 	if err != nil {
 		return 0, err
 	} else if strings.IndexRune(v, '\x00') != 0 {
-		err := KCError("Error: GetInt can't be used to get a non-numeric record")
-		return 0, err
+		return 0, KCError("Error: GetInt can't be used to get a non-numeric record")
 	}
 	cKey := C.CString(key)
 	defer C.free(unsafe.Pointer(cKey))
