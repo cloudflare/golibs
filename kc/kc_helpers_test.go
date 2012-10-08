@@ -6,12 +6,11 @@ package kc
 
 import (
 	"os"
-	"syscall"
 )
 
 func exists(path string) bool {
 	_, err := os.Stat(path)
-	return err == nil || err.(*os.PathError).Err != syscall.ENOENT
+	return !os.IsNotExist(err)
 }
 
 func remove(path string) {
