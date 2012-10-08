@@ -78,11 +78,21 @@ func TestShouldBeAbleToAsynchronouslyApplyAFunctionToAllRecordsInTheDatabase(t *
 	for k, v := range urls {
 		db.Set(k, v)
 	}
-	applied := map[string]string{}
+	applied := make(map[string]string)
+	type pair struct {
+		key, value string
+	}
+	pairs := make(chan pair)
+	go func() {
+		for pair := range pairs {
+			applied[pair.key] = pair.value
+		}
+	}()
 	r := db.AsyncApply(func(key string, value interface{}, args ...interface{}) {
-		applied[key] = value.(string)
+		pairs <- pair{key, value.(string)}
 	})
 	r.Wait()
+	close(pairs)
 	if !areStringMapsEqual(urls, applied) {
 		t.Errorf("Should apply the function")
 	}
