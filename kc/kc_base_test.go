@@ -180,14 +180,8 @@ func TestMatchPrefix(t *testing.T) {
 		"cache/news/3",
 		"cache/news/4",
 	}
-	input := []string{
-		"<html>news 1</html>",
-		"<html>news 2</html>",
-		"<html>news 3</html>",
-		"<html>news 4</html>",
-	}
-	for i, v := range input {
-		db.Set(keys[i], v)
+	for _, k := range keys {
+		db.Set(k, "something")
 	}
 	var tests = []struct {
 		max      int64
