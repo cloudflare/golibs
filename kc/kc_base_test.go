@@ -36,7 +36,7 @@ func TestShouldReportADescriptiveErrorMessageWhenFailToOpenADatabaseForWrite(t *
 	expectedMessagePart := fmt.Sprintf("Error opening %s:", filepath)
 	_, err := Open(filepath, WRITE)
 	if err == nil || !strings.Contains(err.Error(), expectedMessagePart) {
-		t.Errorf("Should fail with a descriptive message")
+		t.Error("Should fail with a descriptive message")
 	}
 }
 
@@ -50,7 +50,7 @@ func TestShouldBeAbleToSetCloseOpenAgainAndReadInWriteMode(t *testing.T) {
 	defer db.Close()
 	name, _ := db.Get("name")
 	if name != "Steve Vai" {
-		t.Errorf("Should be able to write, close, open and get the record stored in write mode")
+		t.Error("Should be able to write, close, open and get the record stored in write mode")
 	}
 }
 
@@ -104,7 +104,7 @@ func TestShouldNotBeAbleToRemoveARecordInReadOnlyMode(t *testing.T) {
 	defer db.Close()
 	err := db.Remove("instrument")
 	if err == nil || !strings.Contains(err.Error(), "read-only mode") {
-		t.Errorf("Should not be able to remove a record in read-only mode")
+		t.Error("Should not be able to remove a record in read-only mode")
 	}
 }
 
