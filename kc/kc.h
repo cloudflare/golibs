@@ -15,4 +15,5 @@ struct strary
 char *strary_item(struct strary *s, int64_t position);
 KCREC gokccurget(KCCUR *cur);
 struct strary match_prefix(KCDB *db, char *prefix, size_t max);
+struct strary match_regex(KCDB *db, char *regex, size_t max);
 void free_strary(struct strary *s);

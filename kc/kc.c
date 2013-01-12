@@ -36,13 +36,13 @@ _free(char ***v, size_t n)
 }
 
 struct strary
-match_prefix(KCDB *db, char *prefix, size_t max)
+_match(KCDB *db, char *match, size_t max, int64_t (*mfunc)(KCDB *, const char *, char **, size_t))
 {
 	int i;
 	int64_t n;
 	struct strary s;
 	_alloc(&s.v, max);
-	n = kcdbmatchprefix(db, prefix, s.v, max);
+	n = mfunc(db, match, s.v, max);
 	if(n == -1) {
 		_free(&s.v, max);
 		s.v = nil;
@@ -56,6 +56,18 @@ match_prefix(KCDB *db, char *prefix, size_t max)
 		s.v = (char **)realloc(s.v, s.n * sizeof(char *));
 	}
 	return s;
+}
+
+struct strary
+match_prefix(KCDB *db, char *prefix, size_t max)
+{
+	return _match(db, prefix, max, kcdbmatchprefix);
+}
+
+struct strary
+match_regex(KCDB *db, char *regex, size_t max)
+{
+	return _match(db, regex, max, kcdbmatchregex);
 }
 
 char *
