@@ -128,6 +128,46 @@ func TestClear(t *testing.T) {
 	}
 }
 
+func TestTransactionCommit(t *testing.T) {
+	filepath := "/tmp/cache.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	err := db.BeginTransaction(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Set("page", "/")
+	err = db.Commit()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, _ := db.Get("page")
+	if v != "/" {
+		t.Errorf("db.Get(%q): Want %q. Got %q.", "page", "/", v)
+	}
+}
+
+func TestTransactionRollback(t *testing.T) {
+	filepath := "/tmp/cache.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	err := db.BeginTransaction(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.Set("page", "/")
+	err = db.Rollback()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := db.Get("page")
+	if err == nil {
+		t.Errorf("Got unexpected value for page key: %q.", v)
+	}
+}
+
 func BenchmarkSetAndGet(b *testing.B) {
 	keys := []string{}
 	for i := 0; i < b.N; i++ {

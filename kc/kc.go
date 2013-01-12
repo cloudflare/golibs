@@ -199,6 +199,41 @@ func (d *DB) Clear() error {
 	return nil
 }
 
+// BeginTransaction begins a new transaction. It accepts a boolean flag that
+// indicates whether the transaction should be hard or not. A hard transaction
+// is a transaction that provides physical synchronization in the device, while
+// a non-hard transaction provides logical synchronization with the file
+// system.
+func (d *DB) BeginTransaction(hard bool) error {
+	var cHard C.int32_t = 0
+	if hard {
+		cHard = 1
+	}
+	if C.kcdbbegintran(d.db, cHard) == 0 {
+		msg := d.LastError()
+		return KCError(fmt.Sprintf("Could not begin transaction: %s.", msg))
+	}
+	return nil
+}
+
+// Commit commits the current transaction.
+func (d *DB) Commit() error {
+	if C.kcdbendtran(d.db, 1) == 0 {
+		msg := d.LastError()
+		return KCError(fmt.Sprintf("Could not commit the transaction: %s.", msg))
+	}
+	return nil
+}
+
+// Rollback aborts the current transaction.
+func (d *DB) Rollback() error {
+	if C.kcdbendtran(d.db, 0) == 0 {
+		msg := d.LastError()
+		return KCError(fmt.Sprintf("Could not rollback the transaction: %s.", msg))
+	}
+	return nil
+}
+
 // SetInt defines the value of an integer record, creating it when there is no
 // record corresponding to the given key.
 //
