@@ -1,7 +1,7 @@
 Go bindings for kyoto cabinet database
 
-More details on Kyoto Cabinet and how to install it (you need its core
-library to use with): http://fallabs.com/kyotocabinet/
+More details on Kyoto Cabinet and how to install it (you need its core library
+to use with): http://fallabs.com/kyotocabinet/
 
 You can install gokabinet using go get:
 
@@ -27,4 +27,5 @@ After installing it, you can use in your Go code. Here is a simple example:
 
 For more examples, check the examples directory in the repository.
 
-Online docs provided by GoPkgDoc: http://go.pkgdoc.org/github.com/fsouza/gokabinet/kc
+Online docs provided by GoPkgDoc:
+http://godoc.org/github.com/fsouza/gokabinet/kc
