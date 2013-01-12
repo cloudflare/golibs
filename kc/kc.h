@@ -11,9 +11,11 @@ struct strary
 	int64_t n;
 };
 
+typedef struct strary strary;
+
 // strary_item returns the item at the given position.
-char *strary_item(struct strary *s, int64_t position);
+char *strary_item(strary *s, int64_t position);
 KCREC gokccurget(KCCUR *cur);
-struct strary match_prefix(KCDB *db, char *prefix, size_t max);
-struct strary match_regex(KCDB *db, char *regex, size_t max);
-void free_strary(struct strary *s);
+strary match_prefix(KCDB *db, char *prefix, size_t max);
+strary match_regex(KCDB *db, char *regex, size_t max);
+void free_strary(strary *s);

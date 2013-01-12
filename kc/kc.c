@@ -35,12 +35,12 @@ _free(char ***v, size_t n)
 	free(*v);
 }
 
-struct strary
+strary
 _match(KCDB *db, char *match, size_t max, int64_t (*mfunc)(KCDB *, const char *, char **, size_t))
 {
 	int i;
 	int64_t n;
-	struct strary s;
+	strary s;
 	_alloc(&s.v, max);
 	n = mfunc(db, match, s.v, max);
 	if(n == -1) {
@@ -58,20 +58,20 @@ _match(KCDB *db, char *match, size_t max, int64_t (*mfunc)(KCDB *, const char *,
 	return s;
 }
 
-struct strary
+strary
 match_prefix(KCDB *db, char *prefix, size_t max)
 {
 	return _match(db, prefix, max, kcdbmatchprefix);
 }
 
-struct strary
+strary
 match_regex(KCDB *db, char *regex, size_t max)
 {
 	return _match(db, regex, max, kcdbmatchregex);
 }
 
 char *
-strary_item(struct strary *s, int64_t position)
+strary_item(strary *s, int64_t position)
 {
 	if(position < s->n) {
 		return s->v[position];
@@ -80,7 +80,7 @@ strary_item(struct strary *s, int64_t position)
 }
 
 void
-free_strary(struct strary *s)
+free_strary(strary *s)
 {
 	_free(&s->v, s->n);
 }
