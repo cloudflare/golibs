@@ -352,6 +352,27 @@ func (d *DB) MatchPrefix(prefix string, max int64) ([]string, error) {
 	return result, nil
 }
 
+// MatchRegex returns a list of keys that matches a regular expression string
+// or an error in case of failure.
+func (d *DB) MatchRegex(regex string, max int64) ([]string, error) {
+	cregex := C.CString(regex)
+	defer C.free(unsafe.Pointer(cregex))
+	strary := C.match_regex(d.db, cregex, C.size_t(max))
+	if strary.v == nil {
+		return nil, d.LastError()
+	}
+	defer C.free_strary(&strary)
+	n := int64(strary.n)
+	if n == 0 {
+		return nil, nil
+	}
+	result := make([]string, n)
+	for i := int64(0); i < n; i++ {
+		result[i] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
+	}
+	return result, nil
+}
+
 // Close closes the database, make sure you always call this method after using
 // the database.
 //

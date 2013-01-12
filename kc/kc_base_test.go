@@ -215,6 +215,52 @@ func TestMatchPrefix(t *testing.T) {
 	}
 }
 
+func TestMatchRegex(t *testing.T) {
+	filepath := "/tmp/cache.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	keys := []string{
+		"cache/news/1",
+		"cache/news/2",
+		"cache/news/3",
+		"cache/news/4",
+	}
+	for _, k := range keys {
+		db.Set(k, "something")
+	}
+	var tests = []struct {
+		max      int64
+		regex    string
+		expected []string
+	}{
+		{
+			max:      2,
+			regex:    "^cache",
+			expected: keys[:2],
+		},
+		{
+			max:      10,
+			regex:    "^cache",
+			expected: keys,
+		},
+		{
+			max:      10,
+			regex:    "^13456$",
+			expected: nil,
+		},
+	}
+	for _, tt := range tests {
+		values, err := db.MatchRegex(tt.regex, tt.max)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(values, tt.expected) {
+			t.Errorf("db.MatchPrefix(%q, 2). Want %#v. Got %#v.", tt.regex, tt.expected, values)
+		}
+	}
+}
+
 func BenchmarkSetAndGet(b *testing.B) {
 	keys := []string{}
 	for i := 0; i < b.N; i++ {
