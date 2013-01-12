@@ -342,6 +342,9 @@ func (d *DB) MatchPrefix(prefix string, max int64) ([]string, error) {
 	}
 	defer C.free_strary(&strary)
 	n := int64(strary.n)
+	if n == 0 {
+		return nil, nil
+	}
 	result := make([]string, n)
 	for i := int64(0); i < n; i++ {
 		result[i] = C.GoString(C.strary_item(&strary, C.int64_t(i)))

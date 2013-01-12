@@ -198,6 +198,11 @@ func TestMatchPrefix(t *testing.T) {
 			prefix:   "cache/news",
 			expected: keys,
 		},
+		{
+			max:      10,
+			prefix:   "/cache/news",
+			expected: nil,
+		},
 	}
 	for _, tt := range tests {
 		values, err := db.MatchPrefix(tt.prefix, tt.max)
