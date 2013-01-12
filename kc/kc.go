@@ -234,6 +234,16 @@ func (d *DB) Rollback() error {
 	return nil
 }
 
+// Size returns the size of the database file.
+func (d *DB) Size() (int64, error) {
+	v := C.kcdbsize(d.db)
+	if v == -1 {
+		msg := d.LastError()
+		return -1, KCError(fmt.Sprintf("Could not get the size of the file: %s.", msg))
+	}
+	return int64(v), nil
+}
+
 // SetInt defines the value of an integer record, creating it when there is no
 // record corresponding to the given key.
 //
