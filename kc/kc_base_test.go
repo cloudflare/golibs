@@ -7,6 +7,7 @@ package kc
 import (
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -165,6 +166,53 @@ func TestTransactionRollback(t *testing.T) {
 	v, err := db.Get("page")
 	if err == nil {
 		t.Errorf("Got unexpected value for page key: %q.", v)
+	}
+}
+
+func TestMatchPrefix(t *testing.T) {
+	filepath := "/tmp/cache.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	keys := []string{
+		"cache/news/1",
+		"cache/news/2",
+		"cache/news/3",
+		"cache/news/4",
+	}
+	input := []string{
+		"<html>news 1</html>",
+		"<html>news 2</html>",
+		"<html>news 3</html>",
+		"<html>news 4</html>",
+	}
+	for i, v := range input {
+		db.Set(keys[i], v)
+	}
+	var tests = []struct {
+		max      int64
+		prefix   string
+		expected []string
+	}{
+		{
+			max:      2,
+			prefix:   "cache/news",
+			expected: keys[:2],
+		},
+		{
+			max:      10,
+			prefix:   "cache/news",
+			expected: keys,
+		},
+	}
+	for _, tt := range tests {
+		values, err := db.MatchPrefix(tt.prefix, tt.max)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(values, tt.expected) {
+			t.Errorf("db.MatchPrefix(%q, 2). Want %#v. Got %#v.", tt.prefix, tt.expected, values)
+		}
 	}
 }
 

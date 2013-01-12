@@ -7,6 +7,7 @@ package kc
 /*
 #cgo pkg-config: kyotocabinet
 #include <kclangc.h>
+#include "kc.h"
 */
 import "C"
 
@@ -328,6 +329,24 @@ func (d *DB) CompareAndSwap(key, old, new string) error {
 		return d.LastError()
 	}
 	return nil
+}
+
+// MatchPrefix returns a list of keys that matches a prefix or an error in case
+// of failure.
+func (d *DB) MatchPrefix(prefix string, max int64) ([]string, error) {
+	cprefix := C.CString(prefix)
+	defer C.free(unsafe.Pointer(cprefix))
+	strary := C.match_prefix(d.db, cprefix, C.size_t(max))
+	if strary.v == nil {
+		return nil, d.LastError()
+	}
+	defer C.free_strary(&strary)
+	n := int64(strary.n)
+	result := make([]string, n)
+	for i := int64(0); i < n; i++ {
+		result[i] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
+	}
+	return result, nil
 }
 
 // Close closes the database, make sure you always call this method after using
