@@ -60,11 +60,9 @@ func TestCount(t *testing.T) {
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
 	if n, err := db.Count(); err != nil {
-		t.Error(err)
-		t.FailNow()
+		t.Fatal(err)
 	} else if n != 0 {
-		t.Errorf("Count failed: want 0, got %d.", n)
-		t.FailNow()
+		t.Fatalf("Count failed: want 0, got %d.", n)
 	}
 	db.Set("name", "Steve Vai")
 	if n, err := db.Count(); err != nil {
@@ -81,8 +79,7 @@ func TestCompareAndSwap(t *testing.T) {
 	defer db.Close()
 	db.Set("name", "Steve Vai")
 	if err := db.CompareAndSwap("name", "Steve Vai", "Geddy Lee"); err != nil {
-		t.Error(err)
-		t.FailNow()
+		t.Fatal(err)
 	}
 	if v, _ := db.Get("name"); v != "Geddy Lee" {
 		t.Errorf("Failed to swap-and-compare. Want Geddy Lee, got %s.", v)
