@@ -1,4 +1,4 @@
-// Copyright 2012 gokabinet authors. All rights reserved.
+// Copyright 2013 gokabinet authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -184,6 +184,17 @@ func (d *DB) Remove(key string) error {
 	if status == 0 {
 		errMsg := d.LastError()
 		return KCError(fmt.Sprintf("Failed to remove the record with the key %s: %s", key, errMsg))
+	}
+	return nil
+}
+
+// Clear removes all records from the database.
+//
+// Returns a KCError in case of failure.
+func (d *DB) Clear() error {
+	if C.kcdbclear(d.db) == 0 {
+		msg := d.LastError()
+		return KCError(fmt.Sprintf("Failed to clear the database: %s.", msg))
 	}
 	return nil
 }

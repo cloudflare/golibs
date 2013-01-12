@@ -1,4 +1,4 @@
-// Copyright 2012 gokabinet authors. All rights reserved.
+// Copyright 2013 gokabinet authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,10 +14,8 @@ import (
 func TestShouldCreateTheFileInTheDiscWhenOpenForReadAndWrite(t *testing.T) {
 	filepath := "/tmp/musicians.kch"
 	defer remove(filepath)
-
 	db, _ := Open(filepath, WRITE)
 	defer db.Close()
-
 	if !exists(filepath) {
 		t.Errorf("%s should exists, but it doesn't", filepath)
 	}
@@ -107,6 +105,29 @@ func TestShouldNotBeAbleToRemoveARecordInReadOnlyMode(t *testing.T) {
 	err := db.Remove("instrument")
 	if err == nil || !strings.Contains(err.Error(), "read-only mode") {
 		t.Errorf("Should not be able to remove a record in read-only mode")
+	}
+}
+
+func TestClear(t *testing.T) {
+	filepath := "/tmp/musicians.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	db.Set("cache/news/1", "<html>something</html>")
+	db.Set("page", "/")
+	err := db.Clear()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"cache/news/1", "page"} {
+		_, err = db.Get(k)
+		if err == nil {
+			t.Error("Should clear the database.")
+		}
+	}
+	err = db.Clear()
+	if err != nil {
+		t.Error("db.Clear: Should not fail if the database is already empty.")
 	}
 }
 
