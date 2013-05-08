@@ -2,6 +2,7 @@
 // Use of this source code is governed by a GPLv3
 // license that can be found in the LICENSE file.
 
+#define MAX_LUA_RESULT_SIZE 64
 #define MAX_RECORD_SIZE 1024
 #define nil 0
 
@@ -34,5 +35,6 @@ free_char_array(char **a, int size) {
 char *strary_item(strary *s, int64_t position);
 strary match_prefix(KTRDB *db, char *prefix, size_t max);
 strary get_bulk_binary(KTRDB *db, const char **keys, size_t nkeys);
+strary play_script(KTRDB *db, const char *script, const char **params, size_t nparams);
 void free_strary(strary *s);
 

@@ -76,6 +76,28 @@ get_bulk_binary(KTRDB *db, const char **keys, size_t nkeys) {
 	return s;
 }
 
+strary 
+play_script(KTRDB *db, const char *script, const char **params, size_t nparams) {
+	int i;
+	int64_t n;
+	strary s;
+	_alloc(&s.v, MAX_LUA_RESULT_SIZE);
+	n = ktdbplayscript(db, script, params, nparams, s.v);
+	if(n == -1) {
+		_free(&s.v, MAX_LUA_RESULT_SIZE);
+		s.v = nil;
+		return s;
+	}
+	s.n = n;
+	if(n < MAX_LUA_RESULT_SIZE) {
+		for(i = n; i < MAX_LUA_RESULT_SIZE; ++i) {
+			free(s.v[i]);
+		}
+		s.v = (char **)realloc(s.v, s.n * sizeof(char *));
+	}
+	return s;
+}
+
 char *
 strary_item(strary *s, int64_t position)
 {

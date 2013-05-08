@@ -270,3 +270,38 @@ func (d *RemoteDB) SetBulk(keysAndVals map[string]string) (int64, error) {
 	}
 	return n, err
 }
+
+// Plays the passed in lua script, returning the result as a key->value map.
+func (d *RemoteDB) PlayScript(script string, params map[string]string) (map[string]string, error) {
+	
+	result := map[string]string{}
+	cScript := C.CString(script)
+	defer C.free(unsafe.Pointer(cScript))
+
+	paramSize := len(params) * 2
+	cParams := C.make_char_array(C.int(paramSize))
+	defer C.free_char_array(cParams, C.int(paramSize))
+	next := 0;
+	for k, v := range (params) {
+        C.set_array_string(cParams, C.CString(k), C.int(next))
+		next++
+        C.set_array_string(cParams, C.CString(v), C.int(next))
+		next++
+	}
+
+	strary := C.play_script(d.db, cScript, cParams, C.size_t(paramSize))
+	if strary.v == nil {
+		return nil, d.LastError()
+	}
+	defer C.free_strary(&strary)
+	n := int64(strary.n)
+	if n == 0 {
+		return result, nil
+	}
+
+	for i := int64(0); i < n; i++ {
+		result[C.GoString(C.strary_item(&strary, C.int64_t(i)))] = C.GoString(C.strary_item(&strary, C.int64_t(i+1)))
+		i++
+	}
+	return result, nil
+}
