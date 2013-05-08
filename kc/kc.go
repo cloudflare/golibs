@@ -43,6 +43,10 @@ type DB struct {
 	Path string
 }
 
+type CUR struct {
+	cur   *C.KCCUR
+}
+
 // Open opens a database.
 //
 // There are constants for the modes: READ and WRITE.
@@ -383,4 +387,150 @@ func (d *DB) MatchRegex(regex string, max int64) ([]string, error) {
 func (d *DB) Close() {
 	C.kcdbclose(d.db)
 	C.kcdbdel(d.db)
+}
+
+/** Below here are functions which expose the cursor functionality */
+
+// LastError returns a KCError instance representing the last occurred error in
+// the cursor.
+func (c *CUR) LastError() error {
+	errMsg := C.GoString(C.kccuremsg(c.cur))
+	return KCError(errMsg)
+}
+
+// Creates a pointer to a cursor, from the given DB
+func (d *DB) GetCursor() (*CUR) {
+	c := &CUR{cur: C.kcdbcursor(d.db)}
+	return c
+}
+
+// Frees the cursor
+func (c *CUR) Delete() {
+	C.kccurdel(c.cur)
+}
+
+// Before itterating, need to jump to the beginning on the DB.
+func (c *CUR) Jump() (error) {
+	v := C.kccurjump(c.cur)
+	if v == 0 {
+		return KCError(fmt.Sprintf("Could not jump the cursor"))
+	}
+	return nil
+}
+
+// Or to a particular place in the DB
+func (c *CUR) JumpKey(key string) (error) {
+	ckey := C.CString(key)
+	defer C.free(unsafe.Pointer(ckey))
+	lKey := C.size_t(len(key))
+	v := C.kccurjumpkey(c.cur, ckey, lKey)
+	if v == 0 {
+		errMsg := c.LastError()
+		return KCError(fmt.Sprintf("Could not jump the cursor: %s ", errMsg))
+	}
+	return nil
+}
+
+// Jump to the end of the DB
+func (c *CUR) JumpBack() (error) {
+	v := C.kccurjumpback(c.cur)
+	if v == 0 {
+		return KCError(fmt.Sprintf("Could not jump the cursor back"))
+	}
+	return nil
+}
+
+// Jump backwards from the current place to the given key
+func (c *CUR) JumpBackKey(key string) (error) {
+	ckey := C.CString(key)
+	defer C.free(unsafe.Pointer(ckey))
+	lKey := C.size_t(len(key))
+	v := C.kccurjumpbackkey	(c.cur, ckey, lKey)
+	if v == 0 {
+		errMsg := c.LastError()
+		return KCError(fmt.Sprintf("Could not jump the cursor back: %s", errMsg))
+	}
+	return nil
+}
+
+// Step forward to the next key
+func (c *CUR) Step() (error) {
+	v := C.kccurstep(c.cur)
+	if v == 0 {
+		return KCError(fmt.Sprintf("Could not step the cursor"))
+	}
+	return nil
+}
+
+// Step backwards
+func (c *CUR) StepBack() (error) {
+	v := C.kccurstepback(c.cur)
+	if v == 0 {
+		return KCError(fmt.Sprintf("Could not step the cursor back"))
+	}
+	return nil
+}
+
+// Get the key for the current record
+func (c *CUR) GetKey(step bool) (string, error) {
+
+	var resultLen C.size_t	
+	var cStep C.int32_t
+	if (step) { cStep = C.int32_t(1); } else { cStep = C.int32_t(0); }
+
+	cKey := C.kccurgetkey(c.cur, &resultLen, cStep)
+	defer C.free(unsafe.Pointer(cKey))
+
+	if cKey == nil {
+		errMsg := c.LastError()
+		return "", KCError(fmt.Sprintf("Failed to get the next key: %s", errMsg))
+	}
+	return C.GoStringN(cKey, C.int(resultLen)), nil
+}
+
+// Get the value for the current record.
+func (c *CUR) GetValue(step bool) (string, error) {
+
+	var resultLen C.size_t	
+	var cStep C.int32_t
+	if (step) { cStep = C.int32_t(1); } else { cStep = C.int32_t(0); }
+
+	cValue := C.kccurgetvalue(c.cur, &resultLen, cStep)
+	defer C.free(unsafe.Pointer(cValue))
+
+	if cValue == nil {
+		errMsg := c.LastError()
+		return "", KCError(fmt.Sprintf("Failed to get the next value: %s", errMsg))
+	}
+	return C.GoStringN(cValue, C.int(resultLen)), nil
+}
+
+// Gets both the key and value
+func (c *CUR) Get(value string, step bool) (string, error) {
+
+	var valueLen C.size_t	
+	var keyLen C.size_t	
+	var cStep C.int32_t
+	if (step) { cStep = C.int32_t(1); } else { cStep = C.int32_t(0); }
+
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cValue))
+
+	cKey := C.kccurget(c.cur, &keyLen, &cValue, &valueLen, cStep)
+	defer C.free(unsafe.Pointer(cKey))
+
+	if cKey == nil {
+		errMsg := c.LastError()
+		return "", KCError(fmt.Sprintf("Failed to get the next key,value pair: %s", errMsg))
+	}
+	return C.GoStringN(cKey, C.int(keyLen)), nil
+}
+
+// Removes the key/value pair the cursor is currently on.
+func (c *CUR) Remove() (error) {
+	v := C.kccurremove(c.cur)
+	if v == 0 {
+		return KCError(fmt.Sprintf("Failed to remove"))
+	}
+	return nil
 }

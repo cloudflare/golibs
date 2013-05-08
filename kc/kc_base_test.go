@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"strings"
+	"strconv"
 	"testing"
 )
 
@@ -206,11 +207,51 @@ func TestMatchPrefix(t *testing.T) {
 	}
 	for _, tt := range tests {
 		values, err := db.MatchPrefix(tt.prefix, tt.max)
-		if err != nil {
+		if err != nil && tt.expected != nil {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(values, tt.expected) {
 			t.Errorf("db.MatchPrefix(%q, 2). Want %#v. Got %#v.", tt.prefix, tt.expected, values)
+		}
+	}
+}
+
+func TestCursor(t *testing.T) {
+	filepath := "/tmp/cache.kch"
+	defer remove(filepath)
+	db, _ := Open(filepath, WRITE)
+	defer db.Close()
+	keys := []string{
+		"cache/news/1",
+		"cache/news/2",
+		"cache/news/3",
+		"cache/news/4",
+	}
+	for _, k := range keys {
+		db.Set(k, "something")
+	}
+	var tests = []struct {
+		expected []string
+	}{
+		{
+			expected: keys,
+		},
+	}
+	for _, tt := range tests {
+		cur := db.GetCursor()
+		cur.Jump()
+		values := make([]string,0)
+		for {
+			if k, err := cur.GetKey(true); err == nil {
+				values = append(values, k)
+			} else {
+				break
+			}
+		}
+		cur.Delete()
+
+		if !reflect.DeepEqual(values, tt.expected) {
+			t.Errorf("db.TestCursor Want %#v. Got %#v.", tt.expected, values)
 		}
 	}
 }
@@ -252,7 +293,7 @@ func TestMatchRegex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		values, err := db.MatchRegex(tt.regex, tt.max)
-		if err != nil {
+		if err != nil && tt.expected != nil {
 			t.Fatal(err)
 		}
 		if !reflect.DeepEqual(values, tt.expected) {
@@ -281,6 +322,34 @@ func BenchmarkSetAndGet(b *testing.B) {
 					db.Get(key)
 				}
 			}
+		}
+	}
+}
+
+func BenchmarkCursorGet(b *testing.B) {
+			
+	filepath := "/tmp/test.kct"
+	defer remove(filepath)
+	if db, err := Open(filepath, WRITE); err == nil {
+		for i:=0; i<100000; i++ {
+			db.Set(strconv.Itoa(i), strconv.Itoa(i))
+		}
+		db.Close()
+	}
+
+	for i := 0; i < b.N; i++ {
+		if db, err := Open(filepath, WRITE); err == nil {
+
+			cur := db.GetCursor()
+			cur.Jump()
+			var value string
+			for {
+				if _, err := cur.Get(value, true); err != nil {
+					break
+				}
+			}
+			cur.Delete()
+			db.Close()
 		}
 	}
 }
