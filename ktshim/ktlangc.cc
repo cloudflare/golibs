@@ -82,6 +82,21 @@ extern "C" {
         return pdb->get(kbuf, ksiz, sp);
     }
 
+    /**
+     * Remove a record.
+     */
+    int32_t ktdbremove(KTRDB* db, const char* kbuf, size_t ksiz) {
+        _assert_(db && kbuf && ksiz <= MEMMAXSIZ);
+        RemoteDB* pdb = (RemoteDB*)db;
+        return pdb->remove(kbuf, ksiz);
+    }
+
+    int32_t ktdbclear(KTRDB* db) {
+        _assert_(db);
+        RemoteDB* pdb = (RemoteDB*)db;
+        return pdb->clear();
+    }
+
     int64_t ktdbmatchprefix(KTRDB* db, const char* prefix, char** strary, size_t max) {
         _assert_(db && prefix && strary && max <= MEMMAXSIZ);
         RemoteDB* pdb = (RemoteDB*)db;
@@ -102,7 +117,58 @@ extern "C" {
     }
 
     int64_t ktdbgetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** strary) {
-        return 0;
+        _assert_(db && strary);
+        RemoteDB* pdb = (RemoteDB*)db;
+
+        std::vector< RemoteDB::BulkRecord > bulk_recs;
+        for (size_t i=0; i < ksiz; i++) {
+            RemoteDB::BulkRecord rec = { 0, keys[i], "", 0 };
+            bulk_recs.push_back(rec);
+        }
+
+        if (pdb->get_bulk_binary(&bulk_recs) == -1) return -1;
+        int64_t cnt = 0;
+        std::vector<RemoteDB::BulkRecord>::iterator it = bulk_recs.begin();
+        std::vector<RemoteDB::BulkRecord>::iterator itend = bulk_recs.end();
+        while (it != itend) {
+            if (it->xt == -1) {
+                strary[cnt++] = '\0';
+            } else {
+                size_t vsiz = it->value.size();
+                char* vbuf = new char[vsiz+1];
+                std::memcpy(vbuf, it->value.data(), vsiz);
+                vbuf[vsiz] = '\0';
+                strary[cnt++] = vbuf;
+            }
+            ++it;
+        }
+        return cnt;
+    }
+
+    int64_t ktdbremovebulkbinary(KTRDB* db, const char** keys, size_t ksiz) {
+        _assert_(db && ksiz);
+        RemoteDB* pdb = (RemoteDB*)db;
+
+        std::vector< RemoteDB::BulkRecord > bulk_recs;
+        for (size_t i=0; i < ksiz; i++) {
+            RemoteDB::BulkRecord rec = { 0, keys[i], "", 0 };
+            bulk_recs.push_back(rec);
+        }
+
+        return pdb->remove_bulk_binary(bulk_recs);
+    }
+
+    int64_t ktdbsetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** vals, size_t vsiz) {
+        _assert_(db && ksiz && vsiz && ksiz == vsiz);
+        RemoteDB* pdb = (RemoteDB*)db;
+
+        std::vector< RemoteDB::BulkRecord > bulk_recs;
+        for (size_t i=0; i < ksiz; i++) {
+            RemoteDB::BulkRecord rec = { 0, keys[i], vals[i], 0 };
+            bulk_recs.push_back(rec);
+        }
+
+        return pdb->set_bulk_binary(bulk_recs);
     }
 
     int32_t ktdbecode(KTRDB* db) {

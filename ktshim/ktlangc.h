@@ -54,12 +54,22 @@ extern "C" {
 
     int32_t ktdbappend(KTRDB* db, const char* kbuf, size_t ksiz, const char* vbuf, size_t vsiz);
     
+    int64_t ktdbincrint(KTRDB* db, const char* kbuf, size_t ksiz, int64_t num, int64_t orig);
+
     char* ktdbget(KTRDB* db, const char* kbuf, size_t ksiz, size_t* sp);
     
+    int32_t ktdbremove(KTRDB* db, const char* kbuf, size_t ksiz);
+
+    int32_t ktdbclear(KTRDB* db);
+
     int64_t ktdbmatchprefix(KTRDB* db, const char* prefix, char** strary, size_t max);
     
     int64_t ktdbgetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** strary);
     
+    int64_t ktdbremovebulkbinary(KTRDB* db, const char** keys, size_t ksiz);
+
+    int64_t ktdbsetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** vals, size_t vsiz);
+
     int32_t ktdbecode(KTRDB* db);
 
     const char* ktecodename(int32_t code);
