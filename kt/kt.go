@@ -12,8 +12,10 @@ package kt
 import "C"
 
 import (
+	"bytes"
 	"fmt"
 	"unsafe"
+	"encoding/gob"
 )
 
 const (
@@ -95,6 +97,78 @@ func (d *RemoteDB) Get(key string) (string, error) {
 	return C.GoStringN(cValue, C.int(resultLen)), nil
 }
 
+// GetGob gets a record in the database by its key, decoding from gob format.
+//
+// Returns nil in case of success. In case of errors, it returns a KCError
+// instance explaining what happened.
+func (d *RemoteDB) GetGob(key string, e interface{}) error {
+	data, err := d.Get(key)
+	if err != nil {
+		return err
+	}
+	buffer := bytes.NewBufferString(data)
+	decoder := gob.NewDecoder(buffer)
+	if err := decoder.Decode(e); err != nil {
+		return KTError(fmt.Sprintf("Failed to decode the record with the key %s: %s", key, err))
+	}
+	return nil
+}
+
+// SetGob adds a record to the database, stored in gob format.
+//
+// Returns a KCError instance in case of errors, otherwise, returns nil.
+func (d *RemoteDB) SetGob(key string, e interface{}) error {
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(e)
+	if err != nil {
+		return KTError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", e, key, err))
+	}
+	err = d.Set(key, buffer.String())
+	return err
+}
+
+// Removes the key from the DB.
+func (d *RemoteDB) Remove(key string) error {
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	lKey := C.size_t(len(key))
+	status := C.ktdbremove(d.db, cKey, lKey)
+	if status == 0 {
+		errMsg := d.LastError()
+		return KTError(fmt.Sprintf("Failed to remove the record with the key %s: %s", key, errMsg))
+	}
+	return nil
+}
+
+// Clear removes all records from the database.
+//
+// Returns a KTError in case of failure.
+func (d *RemoteDB) Clear() error {
+	if C.ktdbclear(d.db) == 0 {
+		msg := d.LastError()
+		return KTError(fmt.Sprintf("Failed to clear the database: %s.", msg))
+	}
+	return nil
+}
+
+// Increment increments the value of a numeric record by a given number, and
+// return the incremented value.
+//
+// In case of errors, returns 0 and a KCError instance with detailed error
+// message.
+func (d *RemoteDB) Increment(key string, number int) (int, error) {
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	lKey := C.size_t(len(key))
+	cValue := C.int64_t(number)
+	v := C.ktdbincrint(d.db, cKey, lKey, cValue, 0)
+	if v == C.INT64_MIN {
+		return 0, KTError("It's not possible to increment a non-numeric record")
+	}
+	return int(v), nil
+}
+
 // Returns the number of elements
 func (d *RemoteDB) Count() (int, error) {
 	var err error
@@ -103,4 +177,96 @@ func (d *RemoteDB) Count() (int, error) {
 		err = d.LastError()
 	}
 	return v, err
+}
+
+// MatchPrefix returns a list of keys that matches a prefix or an error in case
+// of failure.
+func (d *RemoteDB) MatchPrefix(prefix string, max int64) ([]string, error) {
+	cprefix := C.CString(prefix)
+	defer C.free(unsafe.Pointer(cprefix))
+	strary := C.match_prefix(d.db, cprefix, C.size_t(max))
+	if strary.v == nil {
+		return nil, d.LastError()
+	}
+	defer C.free_strary(&strary)
+	n := int64(strary.n)
+	if n == 0 {
+		return nil, nil
+	}
+	result := make([]string, n)
+	for i := int64(0); i < n; i++ {
+		result[i] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
+	}
+	return result, nil
+}
+
+// GetBulk returns all values for the passed in array of keys. if a key does not exist, the value for this key is set to empty string
+// If the key does exist, the value in the passed in map is set accordingly.
+func (d *RemoteDB) GetBulk(keysAndVals map[string]string) (error) {
+	
+	keyList := make([]string, len(keysAndVals))
+	cKeys := C.make_char_array(C.int(len(keysAndVals)))
+	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
+	next := 0;
+	for s, _ := range (keysAndVals) {
+        C.set_array_string(cKeys, C.CString(s), C.int(next))
+		keyList[next] = s
+		next++
+	}
+
+	strary := C.get_bulk_binary(d.db, cKeys, C.size_t(len(keysAndVals)))
+	if strary.v == nil {
+		return d.LastError()
+	}
+	defer C.free_strary(&strary)
+	n := int64(strary.n)
+	if n == 0 {
+		return nil
+	}
+
+	for i := int64(0); i < n; i++ {
+		keysAndVals[keyList[i]] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
+	}
+	return nil
+}
+
+// RemoveBulk removes all of the keys passed in at once.
+func (d *RemoteDB) RemoveBulk(keys []string) (int64, error) {
+	
+	var err error
+	cKeys := C.make_char_array(C.int(len(keys)))
+	defer C.free_char_array(cKeys, C.int(len(keys)))
+	next := 0;
+	for _, s := range (keys) {
+        C.set_array_string(cKeys, C.CString(s), C.int(next))
+		next++
+	}
+
+	n := int64(C.ktdbremovebulkbinary(d.db, cKeys, C.size_t(len(keys))))
+	if n == -1 {
+		err = d.LastError()
+	}
+	return n, err
+}
+
+// SetBulk sets all of the keys passed in at once.
+func (d *RemoteDB) SetBulk(keysAndVals map[string]string) (int64, error) {
+	
+	var err error
+	cKeys := C.make_char_array(C.int(len(keysAndVals)))
+	cVals := C.make_char_array(C.int(len(keysAndVals)))
+	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
+	defer C.free_char_array(cVals, C.int(len(keysAndVals)))
+	next := 0;
+	for k, v := range (keysAndVals) {
+        C.set_array_string(cKeys, C.CString(k), C.int(next))
+        C.set_array_string(cVals, C.CString(v), C.int(next))
+		next++
+	}
+
+	n := int64(C.ktdbsetbulkbinary(d.db, cKeys, C.size_t(len(keysAndVals)), cVals, C.size_t(len(keysAndVals))))
+	if n == -1 {
+		err = d.LastError()
+	}
+	return n, err
 }

@@ -12,3 +12,27 @@ struct strary
 };
 
 typedef struct strary strary;
+
+static char**
+make_char_array(int size) {
+    return calloc(sizeof(char*), size);
+}
+
+static void 
+set_array_string(char **a, char *s, int n) {
+    a[n] = s;
+}
+
+static void 
+free_char_array(char **a, int size) {
+    int i;
+    for (i = 0; i < size; i++)
+        free(a[i]);
+    free(a);
+}
+
+char *strary_item(strary *s, int64_t position);
+strary match_prefix(KTRDB *db, char *prefix, size_t max);
+strary get_bulk_binary(KTRDB *db, const char **keys, size_t nkeys);
+void free_strary(strary *s);
+
