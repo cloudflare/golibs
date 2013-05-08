@@ -70,6 +70,8 @@ extern "C" {
 
     int64_t ktdbsetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** vals, size_t vsiz);
 
+    int32_t ktdbplayscript(KTRDB* db, const char* name, const char** params, size_t psiz, char** strary);
+
     int32_t ktdbecode(KTRDB* db);
 
     const char* ktecodename(int32_t code);

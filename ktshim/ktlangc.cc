@@ -171,6 +171,37 @@ extern "C" {
         return pdb->set_bulk_binary(bulk_recs);
     }
 
+    int32_t ktdbplayscript(KTRDB* db, const char* name, const char** params, size_t psiz, char** strary) {
+        _assert_(db && strary && params);
+        RemoteDB* pdb = (RemoteDB*)db;
+
+        std::map< std::string, std::string > paramsIn;
+        std::map< std::string, std::string > result;
+        for (size_t i=0; i < psiz; i++) {
+            paramsIn[params[i]] = params[i+1];
+            i++;
+        }
+
+        if (pdb->play_script(name, paramsIn, &result) == false) return -1;
+        int64_t cnt = 0;
+        std::map<std::string,std::string>::iterator it = result.begin();
+        std::map<std::string,std::string>::iterator itend = result.end();
+        while (it != itend) {
+            size_t ksiz = it->first.size();
+            char* kbuf = new char[ksiz+1];
+            size_t vsiz = it->second.size();
+            char* vbuf = new char[vsiz+1];
+            std::memcpy(kbuf, it->first.data(), ksiz);
+            std::memcpy(vbuf, it->second.data(), vsiz);
+            kbuf[ksiz] = '\0';
+            vbuf[vsiz] = '\0';
+            strary[cnt++] = kbuf;
+            strary[cnt++] = vbuf;
+            ++it;
+        }
+        return cnt;
+    }
+
     int32_t ktdbecode(KTRDB* db) {
         _assert_(db);
         RemoteDB* pdb = (RemoteDB*)db;
