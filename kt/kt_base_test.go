@@ -223,3 +223,40 @@ func TestSetGetRemoveBulk(t *testing.T) {
 		t.Errorf("db.RemoveBulk(). Want %v. Got %v", 0, count)	
 	}
 }
+
+func TestGetBulkBytes(t *testing.T) {
+
+	cmd := startServer(t)
+	defer haltServer(cmd, t)
+	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
+	defer db.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testKeys := map[string][]byte{}
+	baseKeys := map[string][]byte{
+		"cache/news/1": []byte("1"), 
+		"cache/news/2": []byte("2"),
+		"cache/news/3": []byte("3"),
+		"cache/news/4": []byte("4"),
+		"cache/news/5": []byte("5"),
+		"cache/news/6": []byte("6"),
+	}
+
+	for k, v := range (baseKeys) {
+		db.Set(k, string(v))
+		testKeys[k] = []byte("")
+	}
+
+	err = db.GetBulkBytes(testKeys);
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulk(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+}

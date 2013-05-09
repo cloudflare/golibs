@@ -245,6 +245,37 @@ func (d *RemoteDB) GetBulk(keysAndVals map[string]string) (error) {
 	return nil
 }
 
+// GetBulk returns all values for the passed in array of keys. if a key does not exist, the value for this key is set to empty string
+// If the key does exist, the value in the passed in map is set accordingly.
+func (d *RemoteDB) GetBulkBytes(keysAndVals map[string][]byte) (error) {
+	
+	keyList := make([]string, len(keysAndVals))
+	cKeys := C.make_char_array(C.int(len(keysAndVals)))
+	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
+	next := 0;
+	for s, _ := range (keysAndVals) {
+        C.set_array_string(cKeys, C.CString(s), C.int(next))
+		keyList[next] = s
+		next++
+	}
+
+	strary := C.get_bulk_binary(d.db, cKeys, C.size_t(len(keysAndVals)))
+	if strary.v == nil {
+		return d.LastError()
+	}
+	defer C.free_strary(&strary)
+	n := int64(strary.n)
+	if n == 0 {
+		return nil
+	}
+
+	for i := int64(0); i < n; i++ {
+		keysAndVals[keyList[i]] = C.GoBytes(unsafe.Pointer(C.strary_item(&strary, C.int64_t(i))), C.int(C.strary_size(&strary, C.int64_t(i))))
+
+	}
+	return nil
+}
+
 // RemoveBulk removes all of the keys passed in at once.
 func (d *RemoteDB) RemoveBulk(keys []string) (int64, error) {
 	
