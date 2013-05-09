@@ -83,6 +83,21 @@ func (d *RemoteDB) Set(key, value string) error {
 	return nil
 }
 
+// Get byte[] directly
+func (d *RemoteDB) GetBytes(key string) ([]byte, error) {
+	var resultLen C.size_t
+	cKey := C.CString(key)
+	defer C.free(unsafe.Pointer(cKey))
+	lKey := C.size_t(len(key))
+	cValue := C.ktdbget(d.db, cKey, lKey, &resultLen)
+	defer C.free(unsafe.Pointer(cValue))
+	if cValue == nil {
+		errMsg := d.LastError()
+		return []byte{}, KTError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
+	}
+	return C.GoBytes(unsafe.Pointer(cValue), C.int(resultLen)), nil
+}
+
 func (d *RemoteDB) Get(key string) (string, error) {
 	var resultLen C.size_t
 	cKey := C.CString(key)
