@@ -116,8 +116,8 @@ extern "C" {
         return cnt;
     }
 
-    int64_t ktdbgetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** strary) {
-        _assert_(db && strary);
+    int64_t ktdbgetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** strary, size_t* sizear) {
+        _assert_(db && strary && sizear);
         RemoteDB* pdb = (RemoteDB*)db;
 
         std::vector< RemoteDB::BulkRecord > bulk_recs;
@@ -138,7 +138,9 @@ extern "C" {
                 char* vbuf = new char[vsiz+1];
                 std::memcpy(vbuf, it->value.data(), vsiz);
                 vbuf[vsiz] = '\0';
-                strary[cnt++] = vbuf;
+                strary[cnt] = vbuf;
+                sizear[cnt] = vsiz;
+                cnt++;
             }
             ++it;
         }

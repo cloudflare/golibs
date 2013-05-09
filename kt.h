@@ -9,6 +9,7 @@
 struct strary
 {
 	char    **v;
+    size_t  *s;
 	int64_t n;
 };
 
@@ -33,6 +34,7 @@ free_char_array(char **a, int size) {
 }
 
 char *strary_item(strary *s, int64_t position);
+size_t strary_size(strary *s, int64_t position);
 strary match_prefix(KTRDB *db, char *prefix, size_t max);
 strary get_bulk_binary(KTRDB *db, const char **keys, size_t nkeys);
 strary play_script(KTRDB *db, const char *script, const char **params, size_t nparams);

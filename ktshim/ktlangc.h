@@ -64,7 +64,7 @@ extern "C" {
 
     int64_t ktdbmatchprefix(KTRDB* db, const char* prefix, char** strary, size_t max);
     
-    int64_t ktdbgetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** strary);
+    int64_t ktdbgetbulkbinary(KTRDB* db, const char** keys, size_t ksiz, char** strary, size_t* sizear);
     
     int64_t ktdbremovebulkbinary(KTRDB* db, const char** keys, size_t ksiz);
 
