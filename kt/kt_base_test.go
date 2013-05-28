@@ -172,6 +172,27 @@ func TestGetBulk(t *testing.T) {
 			t.Errorf("db.GetBulk(). Want %v. Got %v. for key %s", v, testKeys[k], k)
 		}
 	}
+
+	// Now remove some keys
+	db.Remove("cache/news/1")
+	db.Remove("cache/news/2")
+	delete(baseKeys, "cache/news/1")
+	delete(baseKeys, "cache/news/2")
+
+	err = db.GetBulk(testKeys);
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulk(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+
+	if _, ok := testKeys["cache/news/1"]; ok {
+		t.Errorf("db.GetBulk(). Returned deleted key %v.", "cache/news/1")
+	}
 }
 
 func TestSetGetRemoveBulk(t *testing.T) {
@@ -258,5 +279,24 @@ func TestGetBulkBytes(t *testing.T) {
 		if !reflect.DeepEqual(v, testKeys[k]) {
 			t.Errorf("db.GetBulk(). Want %v. Got %v. for key %s", v, testKeys[k], k)
 		}
+	}
+
+	// Now remove some keys
+	db.Remove("cache/news/4")
+	delete(baseKeys, "cache/news/4")
+
+	err = db.GetBulkBytes(testKeys);
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulkBytes(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+
+	if _, ok := testKeys["cache/news/4"]; ok {
+		t.Errorf("db.GetBulkBytes(). Returned deleted key %v.", "cache/news/1")
 	}
 }

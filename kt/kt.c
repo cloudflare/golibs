@@ -105,7 +105,7 @@ play_script(KTRDB *db, const char *script, const char **params, size_t nparams) 
 char *
 strary_item(strary *s, int64_t position)
 {
-	if(position < s->n) {
+	if (position < s->n) {
 		return s->v[position];
 	}
 	return nil;
@@ -114,10 +114,19 @@ strary_item(strary *s, int64_t position)
 size_t
 strary_size(strary *s, int64_t position)
 {
-	if(position < s->n) {
+	if (position < s->n) {
 		return s->s[position];
 	}
 	return nil;
+}
+
+bool
+strary_present(strary *s, int64_t position)
+{
+	if (position < s->n) {
+		return s->s[position] != -1;
+	}
+	return false;
 }
 
 void

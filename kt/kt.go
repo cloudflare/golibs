@@ -240,7 +240,11 @@ func (d *RemoteDB) GetBulk(keysAndVals map[string]string) (error) {
 	}
 
 	for i := int64(0); i < n; i++ {
-		keysAndVals[keyList[i]] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
+		if C.bool(C.strary_present(&strary, C.int64_t(i))) {
+			keysAndVals[keyList[i]] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
+		} else {
+			delete(keysAndVals, keyList[i])
+		}
 	}
 	return nil
 }
@@ -270,8 +274,11 @@ func (d *RemoteDB) GetBulkBytes(keysAndVals map[string][]byte) (error) {
 	}
 
 	for i := int64(0); i < n; i++ {
-		keysAndVals[keyList[i]] = C.GoBytes(unsafe.Pointer(C.strary_item(&strary, C.int64_t(i))), C.int(C.strary_size(&strary, C.int64_t(i))))
-
+		if C.bool(C.strary_present(&strary, C.int64_t(i))) {
+			keysAndVals[keyList[i]] = C.GoBytes(unsafe.Pointer(C.strary_item(&strary, C.int64_t(i))), C.int(C.strary_size(&strary, C.int64_t(i))))
+		} else {
+			delete(keysAndVals, keyList[i])
+		}
 	}
 	return nil
 }
