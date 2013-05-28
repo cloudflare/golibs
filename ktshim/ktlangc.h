@@ -34,7 +34,7 @@ extern "C" {
 /**
  * C wrapper of remote database.
  */
-    typedef struct {
+typedef struct {
     void* db;                              /**< dummy member */
 } KTRDB;
     

@@ -132,7 +132,9 @@ extern "C" {
         std::vector<RemoteDB::BulkRecord>::iterator itend = bulk_recs.end();
         while (it != itend) {
             if (it->xt == -1) {
-                strary[cnt++] = '\0';
+                strary[cnt] = '\0';
+                sizear[cnt] = -1;
+                cnt++;
             } else {
                 size_t vsiz = it->value.size();
                 char* vbuf = new char[vsiz+1];
