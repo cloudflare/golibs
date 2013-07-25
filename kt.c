@@ -35,9 +35,7 @@ _match(KTRDB *db, char *match, size_t max, int64_t (*mfunc)(KTRDB *, const char 
     s.s = (size_t*)malloc(sizeof(size_t)*1);
     n = mfunc(db, match, s.v, max);
     if(n == -1) {
-        _free(&s.v, max);
-        free(s.s);
-        s.v = nil;
+        s.n = max;
         return s;
     }
     s.n = n;
@@ -65,9 +63,7 @@ get_bulk_binary(KTRDB *db, const char **keys, size_t nkeys) {
     s.s = (size_t*)malloc(sizeof(size_t)*nkeys);
     n = ktdbgetbulkbinary(db, keys, nkeys, s.v, s.s);
 	if(n == -1) {
-		_free(&s.v, nkeys);
-        free(s.s);
-		s.v = nil;
+        s.n = nkeys;
 		return s;
 	}
 	s.n = n;
@@ -88,8 +84,7 @@ play_script(KTRDB *db, const char *script, const char **params, size_t nparams) 
 	_alloc(&s.v, MAX_LUA_RESULT_SIZE);
 	n = ktdbplayscript(db, script, params, nparams, s.v);
 	if(n == -1) {
-		_free(&s.v, MAX_LUA_RESULT_SIZE);
-		s.v = nil;
+        s.n = MAX_LUA_RESULT_SIZE;
 		return s;
 	}
 	s.n = n;
