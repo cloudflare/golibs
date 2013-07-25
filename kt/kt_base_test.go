@@ -1,25 +1,25 @@
 package kt
 
 import (
-	"testing"
 	"os/exec"
-	"strconv"
-	"time"
 	"reflect"
+	"strconv"
+	"testing"
+	"time"
 )
 
 const (
 	KTHOST = "127.0.0.1"
 	KTPORT = 23034
-	)
+)
 
-func startServer(t *testing.T) (*exec.Cmd) {
+func startServer(t *testing.T) *exec.Cmd {
 	port := strconv.Itoa(KTPORT)
-	cmd := exec.Command("ktserver", "-host", KTHOST, "-port", port, "%")	
+	cmd := exec.Command("ktserver", "-host", KTHOST, "-port", port, "%")
 
 	if err := cmd.Start(); err != nil {
-        t.Fatal("failed to start KT: ", err)
-    }
+		t.Fatal("failed to start KT: ", err)
+	}
 
 	time.Sleep(5000000 * time.Nanosecond)
 	return cmd
@@ -27,8 +27,8 @@ func startServer(t *testing.T) (*exec.Cmd) {
 
 func haltServer(cmd *exec.Cmd, t *testing.T) {
 	if err := cmd.Process.Kill(); err != nil {
-        t.Fatal("failed to halt KT: ", err)
-    }
+		t.Fatal("failed to halt KT: ", err)
+	}
 }
 
 func TestOpenClose(t *testing.T) {
@@ -77,10 +77,10 @@ func TestGetSet(t *testing.T) {
 	}
 
 	keys := []string{"a", "b", "c"}
-	for _,k := range(keys) {
+	for _, k := range keys {
 		db.Set(k, k)
 		got, _ := db.Get(k)
-		if (got != k) {
+		if got != k {
 			t.Errorf("Get failed: want %s, got %s.", k, got)
 		}
 	}
@@ -149,7 +149,7 @@ func TestGetBulk(t *testing.T) {
 
 	testKeys := map[string]string{}
 	baseKeys := map[string]string{
-		"cache/news/1": "1", 
+		"cache/news/1": "1",
 		"cache/news/2": "2",
 		"cache/news/3": "3",
 		"cache/news/4": "4",
@@ -157,12 +157,12 @@ func TestGetBulk(t *testing.T) {
 		"cache/news/6": "6",
 	}
 
-	for k, v := range (baseKeys) {
+	for k, v := range baseKeys {
 		db.Set(k, v)
 		testKeys[k] = ""
 	}
 
-	err = db.GetBulk(testKeys);
+	err = db.GetBulk(testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestGetBulk(t *testing.T) {
 	delete(baseKeys, "cache/news/1")
 	delete(baseKeys, "cache/news/2")
 
-	err = db.GetBulk(testKeys);
+	err = db.GetBulk(testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestSetGetRemoveBulk(t *testing.T) {
 
 	testKeys := map[string]string{}
 	baseKeys := map[string]string{
-		"cache/news/1": "1", 
+		"cache/news/1": "1",
 		"cache/news/2": "2",
 		"cache/news/3": "3",
 		"cache/news/4": "4",
@@ -240,8 +240,8 @@ func TestSetGetRemoveBulk(t *testing.T) {
 	}
 
 	count, _ := db.Count()
-	if (count != 0) {
-		t.Errorf("db.RemoveBulk(). Want %v. Got %v", 0, count)	
+	if count != 0 {
+		t.Errorf("db.RemoveBulk(). Want %v. Got %v", 0, count)
 	}
 }
 
@@ -257,7 +257,7 @@ func TestGetBulkBytes(t *testing.T) {
 
 	testKeys := map[string][]byte{}
 	baseKeys := map[string][]byte{
-		"cache/news/1": []byte("1"), 
+		"cache/news/1": []byte("1"),
 		"cache/news/2": []byte("2"),
 		"cache/news/3": []byte("3"),
 		"cache/news/4": []byte("4"),
@@ -265,12 +265,12 @@ func TestGetBulkBytes(t *testing.T) {
 		"cache/news/6": []byte("6"),
 	}
 
-	for k, v := range (baseKeys) {
+	for k, v := range baseKeys {
 		db.Set(k, string(v))
 		testKeys[k] = []byte("")
 	}
 
-	err = db.GetBulkBytes(testKeys);
+	err = db.GetBulkBytes(testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func TestGetBulkBytes(t *testing.T) {
 	db.Remove("cache/news/4")
 	delete(baseKeys, "cache/news/4")
 
-	err = db.GetBulkBytes(testKeys);
+	err = db.GetBulkBytes(testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
