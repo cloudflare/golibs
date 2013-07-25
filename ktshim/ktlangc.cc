@@ -104,14 +104,13 @@ extern "C" {
         if (pdb->match_prefix(prefix, &strvec, max) == -1) return -1;
         int64_t cnt = 0;
         std::vector<std::string>::iterator it = strvec.begin();
-        std::vector<std::string>::iterator itend = strvec.end();
+        const std::vector<std::string>::iterator itend = strvec.end();
         while (it != itend) {
             size_t ksiz = it->size();
-            char* kbuf = new char[ksiz+1];
-            std::memcpy(kbuf, it->data(), ksiz);
-            kbuf[ksiz] = '\0';
-            strary[cnt++] = kbuf;
+            std::memcpy(strary[cnt], it->data(), ksiz);
+            strary[cnt][ksiz] = '\0';
             ++it;
+            cnt++;
         }
         return cnt;
     }
@@ -129,19 +128,19 @@ extern "C" {
         if (pdb->get_bulk_binary(&bulk_recs) == -1) return -1;
         int64_t cnt = 0;
         std::vector<RemoteDB::BulkRecord>::iterator it = bulk_recs.begin();
-        std::vector<RemoteDB::BulkRecord>::iterator itend = bulk_recs.end();
+        const std::vector<RemoteDB::BulkRecord>::iterator itend = bulk_recs.end();
         while (it != itend) {
             if (it->xt == -1) {
                 strary[cnt] = '\0';
                 sizear[cnt] = -1;
                 cnt++;
             } else {
+                // @TODO -- guard this against overflow
                 size_t vsiz = it->value.size();
-                char* vbuf = new char[vsiz+1];
-                std::memcpy(vbuf, it->value.data(), vsiz);
-                vbuf[vsiz] = '\0';
-                strary[cnt] = vbuf;
                 sizear[cnt] = vsiz;
+                std::memcpy(strary[cnt], it->value.data(), vsiz);
+                strary[cnt][vsiz] = '\0';
+
                 cnt++;
             }
             ++it;
@@ -189,18 +188,18 @@ extern "C" {
         if (pdb->play_script(name, paramsIn, &result) == false) return -1;
         int64_t cnt = 0;
         std::map<std::string,std::string>::iterator it = result.begin();
-        std::map<std::string,std::string>::iterator itend = result.end();
+        const std::map<std::string,std::string>::iterator itend = result.end();
         while (it != itend) {
             size_t ksiz = it->first.size();
-            char* kbuf = new char[ksiz+1];
             size_t vsiz = it->second.size();
-            char* vbuf = new char[vsiz+1];
-            std::memcpy(kbuf, it->first.data(), ksiz);
-            std::memcpy(vbuf, it->second.data(), vsiz);
-            kbuf[ksiz] = '\0';
-            vbuf[vsiz] = '\0';
-            strary[cnt++] = kbuf;
-            strary[cnt++] = vbuf;
+
+            std::memcpy(strary[cnt], it->first.data(), ksiz);
+            strary[cnt][ksiz] = '\0';
+            cnt++;
+
+            std::memcpy(strary[cnt], it->second.data(), vsiz);
+            strary[cnt][vsiz] = '\0';
+            cnt++;
             ++it;
         }
         return cnt;
