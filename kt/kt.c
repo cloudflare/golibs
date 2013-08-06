@@ -10,15 +10,12 @@ _alloc(char ***v, size_t n)
 {
 	int i;
 	*v = (char **)malloc(n * sizeof(char *));
-	for(i = 0; i < n; ++i) {
-		(*v)[i] = (char *)malloc(MAX_RECORD_SIZE * sizeof(char));
-	}
 }
 
 void
 _free(char ***v, size_t n)
 {
-	int i;
+    int i;
 	for(i = 0; i < n; ++i) {
 		free((*v)[i]);
 	}
@@ -40,9 +37,6 @@ _match(KTRDB *db, char *match, size_t max, int64_t (*mfunc)(KTRDB *, const char 
     }
     s.n = n;
     if(n < max) {
-        for(i = n; i < max; ++i) {
-            free(s.v[i]);
-        }
         s.v = (char **)realloc(s.v, s.n * sizeof(char *));
     }
     return s;
@@ -68,9 +62,6 @@ get_bulk_binary(KTRDB *db, const char **keys, size_t nkeys) {
 	}
 	s.n = n;
 	if(n < nkeys) {
-		for(i = n; i < nkeys; ++i) {
-			free(s.v[i]);
-		}
 		s.v = (char **)realloc(s.v, s.n * sizeof(char *));
 	}
 	return s;
@@ -89,9 +80,6 @@ play_script(KTRDB *db, const char *script, const char **params, size_t nparams) 
 	}
 	s.n = n;
 	if(n < MAX_LUA_RESULT_SIZE) {
-		for(i = n; i < MAX_LUA_RESULT_SIZE; ++i) {
-			free(s.v[i]);
-		}
 		s.v = (char **)realloc(s.v, s.n * sizeof(char *));
 	}
 	return s;
