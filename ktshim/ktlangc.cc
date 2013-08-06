@@ -107,6 +107,7 @@ extern "C" {
         const std::vector<std::string>::iterator itend = strvec.end();
         while (it != itend) {
             size_t ksiz = it->size();
+            strary[cnt] = (char *)malloc(ksiz + 1);
             std::memcpy(strary[cnt], it->data(), ksiz);
             strary[cnt][ksiz] = '\0';
             ++it;
@@ -131,13 +132,15 @@ extern "C" {
         const std::vector<RemoteDB::BulkRecord>::iterator itend = bulk_recs.end();
         while (it != itend) {
             if (it->xt == -1) {
+                strary[cnt] = (char *)malloc(1);
                 strary[cnt] = '\0';
                 sizear[cnt] = -1;
                 cnt++;
             } else {
-                // @TODO -- guard this against overflow
+                // @TODO -- guard this against malloc fail.
                 size_t vsiz = it->value.size();
                 sizear[cnt] = vsiz;
+                strary[cnt] = (char *)malloc(vsiz+1);
                 std::memcpy(strary[cnt], it->value.data(), vsiz);
                 strary[cnt][vsiz] = '\0';
 
@@ -193,10 +196,12 @@ extern "C" {
             size_t ksiz = it->first.size();
             size_t vsiz = it->second.size();
 
+            strary[cnt] = (char *)malloc(ksiz+1);
             std::memcpy(strary[cnt], it->first.data(), ksiz);
             strary[cnt][ksiz] = '\0';
             cnt++;
 
+            strary[cnt] = (char *)malloc(vsiz+1);
             std::memcpy(strary[cnt], it->second.data(), vsiz);
             strary[cnt][vsiz] = '\0';
             cnt++;

@@ -3,7 +3,6 @@
 // license that can be found in the LICENSE file.
 
 #define MAX_LUA_RESULT_SIZE 64
-#define MAX_RECORD_SIZE 1024
 #define nil 0
 
 #include <stdbool.h>

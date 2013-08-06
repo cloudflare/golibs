@@ -135,6 +135,16 @@ func TestMatchPrefix(t *testing.T) {
 			t.Errorf("db.MatchPrefix(%q, 2). Want %#v. Got %#v.", tt.prefix, tt.expected, values)
 		}
 	}
+
+	values, err := db.MatchPrefix("//////////DoNotExistAAAAAA", 1028)
+	if len(values) != 0 {
+		t.Errorf("db.MatchPrefix(DoNotExistAAAAAA, 1000). Want 0, got ", len(values))
+	}
+
+	values, err = db.MatchPrefix("//////////DoNotExistBBBBBB", 1028)
+	if len(values) != 0 {
+		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want 0, got ", len(values))
+	}
 }
 
 func TestGetBulk(t *testing.T) {
@@ -297,6 +307,60 @@ func TestGetBulkBytes(t *testing.T) {
 	}
 
 	if _, ok := testKeys["cache/news/4"]; ok {
-		t.Errorf("db.GetBulkBytes(). Returned deleted key %v.", "cache/news/1")
+		t.Errorf("db.GetBulkBytes(). Returned deleted key %v.", "cache/news/4")
+	}
+
+	noKeys := map[string][]byte{
+		"XXXcache/news/1": []byte(""),
+		"XXXcache/news/2": []byte(""),
+		"XXXcache/news/3": []byte(""),
+		"XXXcache/news/4": []byte(""),
+		"XXXcache/news/5": []byte(""),
+		"XXXcache/news/6": []byte(""),
+	}
+	err = db.GetBulkBytes(noKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(noKeys) != 0 {
+		t.Errorf("db.GetBulkBinary. Want 0, got ", len(noKeys))
+	}
+}
+
+func TestGetBulkBytesLargeValue(t *testing.T) {
+
+	cmd := startServer(t)
+	defer haltServer(cmd, t)
+	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
+	defer db.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testKeys := map[string][]byte{}
+	baseKeys := map[string][]byte{
+		"cache/news/1": []byte("v=spf1 mx a:alligator.org a:mailout11.intuit.com a:mailout12.intuit.com a:mailout13.intuit.com a:mailout14.intuit.com a:mailout21.intuit.com a:mailout22.intuit.com a:mailout23.intuit.com a:mailout24.intuit.com a:lvmailout01.intuit.com a:lvmailout02.intuit\" \".com a:lvmailout03.intuit.com a:lvmailappout10.intuit.com a:lvmailappout11.intuit.com a:lvmailappout12.intuit.com a:lvmailappout13.intuit.com a:lvmailappout20.intuit.com a:lvmailappout21.intuit.com a:lvmailappout22.intuit.com a:lvmailappout23.intuit.com a\" \":mailout1b.intuit.com a:mailout2b.intuit.com a:mailout3b.intuit.com a:mailout4b.intuit.com a:mailout101.intuit.com a:mailout102.intuit.com a:mailout103.intuit.com a:mailout104.intuit.com a:mailout201.intuit.com a:mailout202.intuit.com a:mailout203.intuit.\" \"com a:mailout204.intuit.com a:mailout4a.intuit.com a:mailout1a.intuit.com a:mailout2a.intuit.com a:mailout3a.intuit.com a:mailout5a.intuit.com ip4:209.251.131.160/28 ip4:206.154.105.172 ip4:206.154.105.173 ip4:206.154.105.174 ip4:206.154.105.175 ip4:206.1\" \"54.105.176 ip4:206.154.105.177 ip4:206.154.105.178 ip4:206.154.105.179 ip4:199.16.139.16 ip4:199.16.139.17 ip4:199.16.139.18 ip4:199.16.139.20 ip4:199.16.139.21 ip4:199.16.139.22 ip4:199.16.139.23 ip4:199.16.139.24 ip4:199.16.139.25 ip4:199.16.139.26 ip4:\" \"199.16.139.27 ip4:206.108.40.7 ip4:206.108.40.8 ip4:206.108.40.9 ip4:206.108.40.10 ip4:206.108.40.11 ip4:206.108.40.12 ip4:206.108.40.13 ip4:206.108.40.14 ip4:206.108.40.15 ip4:206.108.40.16 ip4:206.108.40.17 ip4:206.108.40.28 ip4:206.108.40.90 ip4:206.10\" \"8.40.91 ip4:206.108.40.92 include:_spf.google.com -all"),
+		"cache/news/2": []byte("2"),
+		"cache/news/3": []byte("3"),
+		"cache/news/4": []byte("sdjkfhsdkfjhskdjfhskdhfksdf"),
+		"cache/news/5": []byte("3826498237rsjdhfkjsdhfkjhsdjkfhsdjkf2893yrjascmzxbncmnzbxvsefuwie"),
+		"cache/news/6": []byte("6"),
+	}
+
+	for k, v := range baseKeys {
+		db.Set(k, string(v))
+		testKeys[k] = []byte("")
+	}
+
+	err = db.GetBulkBytes(testKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulk(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
 	}
 }
