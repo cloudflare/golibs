@@ -36,7 +36,9 @@ _match(KTRDB *db, char *match, size_t max, int64_t (*mfunc)(KTRDB *, const char 
         return s;
     }
     s.n = n;
-    s.v = (n==0) ? NULL : s.v;
+    if(n < max) {
+        s.v = (char **)realloc(s.v, s.n * sizeof(char *));
+    }
     return s;
 }
 
@@ -59,7 +61,9 @@ get_bulk_binary(KTRDB *db, const char **keys, size_t nkeys) {
 		return s;
 	}
 	s.n = n;
-	s.v = (n==0) ? NULL : s.v;
+	if(n < nkeys) {
+		s.v = (char **)realloc(s.v, s.n * sizeof(char *));
+	}
 	return s;
 }
 
@@ -75,7 +79,9 @@ play_script(KTRDB *db, const char *script, const char **params, size_t nparams) 
 		return s;
 	}
 	s.n = n;
-	s.v = (n==0) ? NULL : s.v;
+	if(n < MAX_LUA_RESULT_SIZE) {
+		s.v = (char **)realloc(s.v, s.n * sizeof(char *));
+	}
 	return s;
 }
 
