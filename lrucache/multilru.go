@@ -3,7 +3,6 @@
 package lrucache
 
 import (
-	"hash"
 	"hash/crc32"
 	"time"
 )
@@ -13,7 +12,6 @@ import (
 type MultiLRUCache struct {
 	buckets uint
 	cache   []*LRUCache
-	hash    hash.Hash
 }
 
 // Using this constructor is almost always wrong. Use NewMultiLRUCache instead.
