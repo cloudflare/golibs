@@ -64,8 +64,8 @@ func (b *LRUCache) expiredEntry(now time.Time) *entry {
 		// Fill it only when actually used.
 		now = time.Now()
 	}
-	e := b.priorityQueue[0]
-	if e.expire.Before(now) {
+
+	if e := b.priorityQueue[0]; e.expire.Before(now) {
 		return e
 	}
 	return nil
