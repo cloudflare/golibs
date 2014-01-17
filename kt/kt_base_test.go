@@ -1,6 +1,7 @@
 package kt
 
 import (
+	"net"
 	"os/exec"
 	"reflect"
 	"strconv"
@@ -21,8 +22,17 @@ func startServer(t *testing.T) *exec.Cmd {
 		t.Fatal("failed to start KT: ", err)
 	}
 
-	time.Sleep(5000000 * time.Nanosecond)
-	return cmd
+	for i := 0; ; i++ {
+		conn, err := net.Dial("tcp", KTHOST + ":" + port)
+		if err == nil {
+			conn.Close()
+			return cmd
+		}
+		time.Sleep(50 * time.Millisecond)
+		if i > 50 {
+			t.Fatal("failed to start KT: ", err)
+		}
+	}
 }
 
 func haltServer(cmd *exec.Cmd, t *testing.T) {
