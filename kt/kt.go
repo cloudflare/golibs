@@ -215,10 +215,10 @@ func (d *RemoteDB) MatchPrefix(prefix string, max int64) ([]string, error) {
 	return result, nil
 }
 
-// GetBulk returns all values for the passed in array of keys. if a key does not exist, the value for this key is set to empty string
-// If the key does exist, the value in the passed in map is set accordingly.
+// GetBulk fetches all keys in the given map. If a key does not exist, it is deleted from the map before being returned.
+// If the key does exist, the value in the map is set accordingly.
 func (d *RemoteDB) GetBulk(keysAndVals map[string]string) (error) {
-	
+
 	keyList := make([]string, len(keysAndVals))
 	cKeys := C.make_char_array(C.int(len(keysAndVals)))
 	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
@@ -249,10 +249,10 @@ func (d *RemoteDB) GetBulk(keysAndVals map[string]string) (error) {
 	return nil
 }
 
-// GetBulk returns all values for the passed in array of keys. if a key does not exist, the value for this key is set to empty string
-// If the key does exist, the value in the passed in map is set accordingly.
+// GetBulkBytes fetches all keys in the given map. If a key does not exist, it is deleted from the map before being returned.
+// If the key does exist, the value in the map is set accordingly.
 func (d *RemoteDB) GetBulkBytes(keysAndVals map[string][]byte) (error) {
-	
+
 	keyList := make([]string, len(keysAndVals))
 	cKeys := C.make_char_array(C.int(len(keysAndVals)))
 	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
@@ -285,7 +285,7 @@ func (d *RemoteDB) GetBulkBytes(keysAndVals map[string][]byte) (error) {
 
 // RemoveBulk removes all of the keys passed in at once.
 func (d *RemoteDB) RemoveBulk(keys []string) (int64, error) {
-	
+
 	var err error
 	cKeys := C.make_char_array(C.int(len(keys)))
 	defer C.free_char_array(cKeys, C.int(len(keys)))
@@ -304,7 +304,7 @@ func (d *RemoteDB) RemoveBulk(keys []string) (int64, error) {
 
 // SetBulk sets all of the keys passed in at once.
 func (d *RemoteDB) SetBulk(keysAndVals map[string]string) (int64, error) {
-	
+
 	var err error
 	cKeys := C.make_char_array(C.int(len(keysAndVals)))
 	cVals := C.make_char_array(C.int(len(keysAndVals)))
@@ -326,7 +326,7 @@ func (d *RemoteDB) SetBulk(keysAndVals map[string]string) (int64, error) {
 
 // Plays the passed in lua script, returning the result as a key->value map.
 func (d *RemoteDB) PlayScript(script string, params map[string]string) (map[string]string, error) {
-	
+
 	result := map[string]string{}
 	cScript := C.CString(script)
 	defer C.free(unsafe.Pointer(cScript))
