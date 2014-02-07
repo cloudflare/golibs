@@ -1,6 +1,5 @@
 // Copyright (c) 2013 CloudFlare, Inc.
 
-
 // Circular buffer data structure.
 //
 // This implementation avoids memory allocations during push/pop
@@ -29,6 +28,10 @@ type StackPusher interface {
 	// Non-blocking push. Will evict items from the cache if there
 	// isn't enough space available.
 	NBPush(interface{}) interface{}
+
+	// Non-blocking push. Wil put item in the buffer only if there
+	// is free space.
+	NBOptionalPush(interface{}) interface{}
 }
 
 // An interface used to get items from the stack.
@@ -50,7 +53,7 @@ type CircularBuffer struct {
 	lock   sync.Mutex
 	// Callback used by NBPush if an item needs to be evicted from
 	// the stack.
-	Evict  func(v interface{})
+	Evict func(v interface{})
 }
 
 // Create CircularBuffer object with a prealocated buffer of a given size.
@@ -68,6 +71,10 @@ func (b *CircularBuffer) NBPush(v interface{}) interface{} {
 	var evictv interface{}
 	b.lock.Lock()
 
+	if b.buffer[b.pos] != nil {
+		panic("not nil")
+	}
+
 	b.buffer[b.pos] = v
 	b.pos = (b.pos + 1) % b.size
 	if b.pos == b.start {
@@ -78,6 +85,38 @@ func (b *CircularBuffer) NBPush(v interface{}) interface{} {
 		b.buffer[b.start] = nil
 		b.start = (b.start + 1) % b.size
 	} else {
+		select {
+		case b.avail <- true:
+		default:
+			panic("Sending to avail channel must never block")
+		}
+	}
+	b.lock.Unlock()
+	if evictv != nil && b.Evict != nil {
+		// Outside the lock. User callback may in want to add
+		// an item to the stack.
+		b.Evict(evictv)
+		return nil
+	}
+	return evictv
+}
+
+// Nonblocking push. Push only if there is space. Otherwise evict v.
+func (b *CircularBuffer) NBOptionalPush(v interface{}) interface{} {
+	var evictv interface{}
+	b.lock.Lock()
+
+	if b.buffer[b.pos] != nil {
+		panic("not nil")
+	}
+
+	if (b.start+b.size-1)%b.size == b.pos {
+		// evict v, don't change anything
+		evictv = v
+	} else {
+		// Plenty of space, just add as usual
+		b.buffer[b.pos] = v
+		b.pos = (b.pos + 1) % b.size
 		select {
 		case b.avail <- true:
 		default:
@@ -106,7 +145,7 @@ func (b *CircularBuffer) Get() interface{} {
 	}
 
 	v := b.buffer[b.start]
-	b.buffer[b.pos] = nil
+	b.buffer[b.start] = nil
 	b.start = (b.start + 1) % b.size
 
 	return v
