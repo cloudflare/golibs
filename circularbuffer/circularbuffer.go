@@ -7,8 +7,8 @@
 // evicted). You can pop an item from the top. You can access this
 // data structure concurrently, using an internal guarding mutex lock.
 //
-// Eviction semantics are somewhat complex. First, when NBPush is
-// called it tries to call the Evict callback. If the callback is
+// An item can get evicted when NBPush is called. During the call the
+// buffer will try to call the Evict callback. If the callback is
 // present the NBPush fun runs it and returns nil. Otherwise NBPush
 // returns the evicted value or nil if there still is free space in
 // the stack.
