@@ -39,6 +39,10 @@ func haltServer(cmd *exec.Cmd, t *testing.T) {
 	if err := cmd.Process.Kill(); err != nil {
 		t.Fatal("failed to halt KT: ", err)
 	}
+
+	if _, err := cmd.Process.Wait(); err != nil {
+		t.Fatal("failed to halt KT: ", err)
+	}
 }
 
 func TestOpenClose(t *testing.T) {
