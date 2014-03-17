@@ -16,6 +16,11 @@ const (
 
 func startServer(t *testing.T) *exec.Cmd {
 	port := strconv.Itoa(KTPORT)
+
+	if _, err := net.Dial("tcp", KTHOST + ":" + port); err == nil {
+		t.Fatal("Not expecting ktserver to exist yet. Perhaps: killall ktserver?")
+	}
+
 	cmd := exec.Command("ktserver", "-host", KTHOST, "-port", port, "%")
 
 	if err := cmd.Start(); err != nil {
