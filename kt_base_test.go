@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -17,7 +18,7 @@ const (
 func startServer(t *testing.T) *exec.Cmd {
 	port := strconv.Itoa(KTPORT)
 
-	if _, err := net.Dial("tcp", KTHOST + ":" + port); err == nil {
+	if _, err := net.Dial("tcp", KTHOST+":"+port); err == nil {
 		t.Fatal("Not expecting ktserver to exist yet. Perhaps: killall ktserver?")
 	}
 
@@ -28,7 +29,7 @@ func startServer(t *testing.T) *exec.Cmd {
 	}
 
 	for i := 0; ; i++ {
-		conn, err := net.Dial("tcp", KTHOST + ":" + port)
+		conn, err := net.Dial("tcp", KTHOST+":"+port)
 		if err == nil {
 			conn.Close()
 			return cmd
@@ -156,13 +157,18 @@ func TestMatchPrefix(t *testing.T) {
 	}
 
 	values, err := db.MatchPrefix("//////////DoNotExistAAAAAA", 1028)
-	if len(values) != 0 {
-		t.Errorf("db.MatchPrefix(DoNotExistAAAAAA, 1000). Want 0, got ", len(values))
+	if len(values) != 0 || !strings.HasSuffix(err.Error(), "success") {
+		t.Errorf("db.MatchPrefix(DoNotExistAAAAAA, 1000). Want 0, got ", len(values), err)
 	}
 
 	values, err = db.MatchPrefix("//////////DoNotExistBBBBBB", 1028)
-	if len(values) != 0 {
-		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want 0, got ", len(values))
+	if len(values) != 0 || !strings.HasSuffix(err.Error(), "success") {
+		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want 0, got ", len(values), err)
+	}
+
+	values, err = db.MatchPrefix("c", 1028)
+	if len(values) != 4 || err != nil {
+		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want 0, got ", len(values), err)
 	}
 }
 
@@ -382,4 +388,37 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 			t.Errorf("db.GetBulk(). Want %v. Got %v. for key %s", v, testKeys[k], k)
 		}
 	}
+
+	err = db.GetBulkBytes(make(map[string][]byte))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wrong := make(map[string][]byte)
+	wrong["/////doesntexitst"] = []byte("blah")
+
+	err = db.GetBulkBytes(wrong)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wrong["/////doesntexitst"]) != 0 {
+		t.Error(wrong["/////doesntexitst"])
+	}
+}
+
+func TestGetBytes(t *testing.T) {
+
+	cmd := startServer(t)
+	defer haltServer(cmd, t)
+	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
+	defer db.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = db.GetBytes("//doesntexist")
+	if !strings.HasSuffix(err.Error(), "logical inconsistency") {
+		t.Fatal(err)
+	}
+
 }
