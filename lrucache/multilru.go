@@ -58,6 +58,14 @@ func (m *MultiLRUCache) GetNotStaleNow(key string, now time.Time) (value interfa
 	return m.cache[m.bucketNo(key)].GetNotStaleNow(key, now)
 }
 
+func (m *MultiLRUCache) GetStale(key string) (value interface{}, ok, expired bool) {
+	return m.cache[m.bucketNo(key)].GetStale(key)
+}
+
+func (m *MultiLRUCache) GetStaleNow(key string, now time.Time) (value interface{}, ok, expired bool) {
+	return m.cache[m.bucketNo(key)].GetStaleNow(key, now)
+}
+
 func (m *MultiLRUCache) Del(key string) (value interface{}, ok bool) {
 	return m.cache[m.bucketNo(key)].Del(key)
 }

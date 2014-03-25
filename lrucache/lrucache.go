@@ -215,6 +215,27 @@ func (b *LRUCache) GetNotStaleNow(key string, now time.Time) (value interface{},
 	return e.value, true
 }
 
+// Get a key from the cache, possibly stale. Update its LRU
+// score. O(1) always.
+func (b *LRUCache) GetStale(key string) (value interface{}, ok, expired bool) {
+	return b.GetStaleNow(key, time.Now())
+}
+
+// Get a key from the cache, possibly stale. Update its LRU
+// score. O(1) always.
+func (b *LRUCache) GetStaleNow(key string, now time.Time) (value interface{}, ok, expired bool) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	e := b.table[key]
+	if e == nil {
+		return nil, false, false
+	}
+
+	b.touchEntry(e)
+	return e.value, true, e.expire.Before(now)
+}
+
 // Get and remove a key from the cache. O(log(n)) if the item is using expiry, O(1) otherwise.
 func (b *LRUCache) Del(key string) (v interface{}, ok bool) {
 	b.lock.Lock()
