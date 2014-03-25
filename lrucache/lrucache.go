@@ -123,8 +123,7 @@ func (b *LRUCache) insertEntry(e *entry) {
 }
 
 func (b *LRUCache) touchEntry(e *entry) {
-	b.lruList.Remove(&e.element)
-	b.lruList.PushElementFront(&e.element)
+	b.lruList.MoveToFront(&e.element)
 }
 
 // Add an item to the cache overwriting existing one if it
