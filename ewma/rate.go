@@ -62,7 +62,7 @@ func (r *EwmaRate) Current(now time.Time) float64 {
 		return 0
 	}
 
-	if r.Ewma.lastTimestamp == now {
+	if r.Ewma.lastTimestamp == now || now.Before(r.Ewma.lastTimestamp) {
 		return r.Ewma.Current
 	}
 
