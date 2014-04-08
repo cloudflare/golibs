@@ -43,9 +43,15 @@ func (r *EwmaRate) UpdateNow() float64 {
 //
 // Returns current rate.
 func (r *EwmaRate) Update(now time.Time) float64 {
-	timeDelta := now.Sub(r.Ewma.lastTimestamp)
+	if now.Before(r.lastTimestamp) {
+		return r.Ewma.Current
+	}
+	if r.lastTimestamp.IsZero() {
+		r.lastTimestamp = now
+		return r.Ewma.Current
+	}
 
-	// Average the time between events
+	timeDelta := now.Sub(r.Ewma.lastTimestamp)
 	return r.Ewma.Update(nanosec/float64(timeDelta.Nanoseconds()), now)
 }
 
@@ -58,11 +64,7 @@ func (r *EwmaRate) CurrentNow() float64 {
 
 // Read the rate of events per second, with specified current time.
 func (r *EwmaRate) Current(now time.Time) float64 {
-	if r.Ewma.lastTimestamp.IsZero() {
-		return 0
-	}
-
-	if r.Ewma.lastTimestamp == now || now.Before(r.Ewma.lastTimestamp) {
+	if r.Ewma.lastTimestamp.IsZero() || r.Ewma.lastTimestamp == now || now.Before(r.Ewma.lastTimestamp) {
 		return r.Ewma.Current
 	}
 
@@ -70,5 +72,5 @@ func (r *EwmaRate) Current(now time.Time) float64 {
 
 	// Count as if nothing was received since last update and
 	// don't save anything.
-	return r.Ewma.count(nanosec/float64(timeDelta.Nanoseconds()), timeDelta)
+	return r.Ewma.count(0, timeDelta)
 }
