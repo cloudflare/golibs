@@ -92,5 +92,4 @@ func TestRateCoverErrors(t *testing.T) {
 		// depending on the speed of the CPU
 		t.Errorf("expecting 0 got %v", rate)
 	}
-
 }

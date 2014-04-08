@@ -59,7 +59,7 @@ func (e *Ewma) UpdateNow(value float64) float64 {
 //
 // Returns updated moving avarage.
 func (e *Ewma) Update(next float64, timestamp time.Time) float64 {
-	if timestamp.Before(e.lastTimestamp) {
+	if timestamp.Before(e.lastTimestamp) || timestamp == e.lastTimestamp {
 		return e.Current
 	}
 
