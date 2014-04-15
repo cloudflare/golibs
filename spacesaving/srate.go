@@ -79,13 +79,13 @@ func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 
 		b1 := &ss.olist[bucketno]
 		b2 := &ss.olist[bucketno+1]
-		if b2.countTs > bucket.countTs {
+		if b1.countTs < b2.countTs {
 			break
 		}
 
-		*b1, *b2 = *b2, *b1
 		ss.hash[b1.key] = bucketno + 1
 		ss.hash[b2.key] = bucketno
+		*b1, *b2 = *b2, *b1
 		bucketno += 1
 	}
 }

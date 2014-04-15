@@ -48,13 +48,13 @@ func (ss *Count) Touch(key string) {
 
 		b1 := &ss.olist[bucketno]
 		b2 := &ss.olist[bucketno+1]
-		if b2.count > bucket.count {
+		if b1.count < b2.count {
 			break
 		}
 
-		*b1, *b2 = *b2, *b1
 		ss.hash[b1.key] = bucketno + 1
 		ss.hash[b2.key] = bucketno
+		*b1, *b2 = *b2, *b1
 		bucketno += 1
 	}
 }
