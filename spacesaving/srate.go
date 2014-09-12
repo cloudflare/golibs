@@ -3,6 +3,7 @@
 package spacesaving
 
 import (
+	"container/heap"
 	"math"
 	"time"
 )
@@ -15,21 +16,54 @@ type srateBucket struct {
 	error     uint64
 	errorTs   int64
 	errorRate float64
+	index     int
+}
+
+type srateHeap []*srateBucket
+
+func (sh srateHeap) Len() int { return len(sh) }
+
+func (sh srateHeap) Less(i, j int) bool {
+	return sh[i].countTs < sh[j].countTs
+}
+
+func (sh srateHeap) Swap(i, j int) {
+	sh[i], sh[j] = sh[j], sh[i]
+	sh[i].index = i
+	sh[j].index = j
+}
+
+func (sh *srateHeap) Push(x interface{}) {
+	n := len(*sh)
+	bucket := x.(*srateBucket)
+	bucket.index = n
+	*sh = append(*sh, bucket)
+}
+
+func (sh *srateHeap) Pop() interface{} {
+	old := *sh
+	n := len(old)
+	bucket := old[n-1]
+	bucket.index = -1 // for safety
+	*sh = old[0 : n-1]
+	return bucket
 }
 
 type SimpleRate struct {
-	olist        []srateBucket
-	hash         map[string]uint32
+	heap         srateHeap
+	hash         map[string]*srateBucket
 	weightHelper float64
 	halfLife     time.Duration
+	size         int
 }
 
 func (ss *SimpleRate) Init(size int, halfLife time.Duration) *SimpleRate {
 	*ss = SimpleRate{
-		olist:        make([]srateBucket, size),
-		hash:         make(map[string]uint32, size),
+		heap:         make([]*srateBucket, 0, size),
+		hash:         make(map[string]*srateBucket, size),
 		weightHelper: -math.Ln2 / float64(halfLife.Nanoseconds()),
 		halfLife:     halfLife,
+		size:         size,
 	}
 	return ss
 }
@@ -50,19 +84,24 @@ func (ss *SimpleRate) recount(rate float64, lastTs, now int64) float64 {
 
 func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 	var (
-		bucketno uint32
 		found    bool
 		bucket   *srateBucket
 		now      = nowTs.UnixNano()
 	)
-
-	if bucketno, found = ss.hash[key]; found {
-		bucket = &ss.olist[bucketno]
+	bucket, found = ss.hash[key];
+	if found {
+		// we already have the correct bucket
+	} else if len(ss.heap) < ss.size {
+		// create new bucket
+		bucket = &srateBucket{}
+		ss.hash[key] = bucket
+		bucket.key = key
+		(&ss.heap).Push(bucket)
 	} else {
-		bucketno = 0
-		bucket = &ss.olist[bucketno]
+		// use minimum bucket
+		bucket = ss.heap[0]
 		delete(ss.hash, bucket.key)
-		ss.hash[key] = bucketno
+		ss.hash[key] = bucket
 		bucket.error, bucket.errorTs, bucket.errorRate =
 			bucket.count, bucket.countTs, bucket.countRate
 		bucket.key = key
@@ -72,22 +111,7 @@ func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now)
 	bucket.countTs = now
 
-	for {
-		if bucketno == uint32(len(ss.olist))-1 {
-			break
-		}
-
-		b1 := &ss.olist[bucketno]
-		b2 := &ss.olist[bucketno+1]
-		if b1.countTs < b2.countTs {
-			break
-		}
-
-		ss.hash[b1.key] = bucketno + 1
-		ss.hash[b2.key] = bucketno
-		*b1, *b2 = *b2, *b1
-		bucketno += 1
-	}
+	heap.Fix(&ss.heap, bucket.index)
 }
 
 type srateElement struct {
@@ -101,12 +125,8 @@ type srateElement struct {
 func (ss *SimpleRate) GetAll(nowTs time.Time) []srateElement {
 	now := nowTs.UnixNano()
 
-	elements := make([]srateElement, 0, len(ss.hash))
-	for i := len(ss.olist) - 1; i >= 0; i -= 1 {
-		b := &ss.olist[i]
-		if b.key == "" {
-			continue
-		}
+	elements := make([]srateElement, 0, len(ss.heap))
+	for _, b := range ss.heap {
 		rate := ss.recount(b.countRate, b.countTs, now)
 		errRate := ss.recount(b.errorRate, b.errorTs, now)
 		elements = append(elements, srateElement{
