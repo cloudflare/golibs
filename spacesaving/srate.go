@@ -96,7 +96,7 @@ func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 		bucket = &srateBucket{}
 		ss.hash[key] = bucket
 		bucket.key = key
-		(&ss.heap).Push(bucket)
+		heap.Push(&ss.heap, bucket)
 	} else {
 		// use minimum bucket
 		bucket = ss.heap[0]
