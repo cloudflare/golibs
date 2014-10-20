@@ -47,6 +47,11 @@ func (r *EwmaRate) Update(now time.Time) float64 {
 	return r.Ewma.Update(nanosec/float64(timeDelta.Nanoseconds()), now)
 }
 
+func (r *EwmaRate) UpdateWeighted(now time.Time, userWeight float64) float64 {
+	timeDelta := now.Sub(r.lastTimestamp)
+	return r.Ewma.Update(nanosec/float64(timeDelta.Nanoseconds()) * userWeight, now)
+}
+
 // Read the rate of events per second.
 //
 // Uses system clock to determine current time.

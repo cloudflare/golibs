@@ -6,14 +6,13 @@ import (
 	"container/heap"
 	"math"
 	"time"
+	"sort"
 )
 
 type srateBucket struct {
 	key       string
-	count     uint64
 	countTs   int64
 	countRate float64
-	error     uint64
 	errorTs   int64
 	errorRate float64
 	index     int
@@ -68,12 +67,12 @@ func (ss *SimpleRate) Init(size int, halfLife time.Duration) *SimpleRate {
 	return ss
 }
 
-func (ss *SimpleRate) count(rate float64, lastTs, now int64) float64 {
+func (ss *SimpleRate) count(rate float64, lastTs, now int64, userWeight float64) float64 {
 	deltaNs := float64(now - lastTs)
 	weight := math.Exp(deltaNs * ss.weightHelper)
 
 	if deltaNs > 0 && lastTs != 0 {
-		return rate*weight + (1000000000./deltaNs)*(1-weight)
+		return rate*weight + (1000000000./deltaNs)*userWeight*(1-weight)
 	}
 	return rate * weight
 }
@@ -82,13 +81,8 @@ func (ss *SimpleRate) recount(rate float64, lastTs, now int64) float64 {
 	return rate * math.Exp(float64(now-lastTs)*ss.weightHelper)
 }
 
-func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
-	var (
-		found    bool
-		bucket   *srateBucket
-		now      = nowTs.UnixNano()
-	)
-	bucket, found = ss.hash[key];
+func (ss *SimpleRate) findBucket(key string) *srateBucket {
+	bucket, found := ss.hash[key];
 	if found {
 		// we already have the correct bucket
 	} else if len(ss.heap) < ss.size {
@@ -102,25 +96,57 @@ func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 		bucket = ss.heap[0]
 		delete(ss.hash, bucket.key)
 		ss.hash[key] = bucket
-		bucket.error, bucket.errorTs, bucket.errorRate =
-			bucket.count, bucket.countTs, bucket.countRate
+		bucket.errorTs, bucket.errorRate =
+			bucket.countTs, bucket.countRate
 		bucket.key = key
 	}
+	return bucket
+}
 
-	bucket.count += 1
-	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now)
+func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
+	var (
+		now      = nowTs.UnixNano()
+		bucket   = ss.findBucket(key)
+	)
+
+	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now, 1)
 	bucket.countTs = now
+	heap.Fix(&ss.heap, bucket.index)
+}
 
+func (ss *SimpleRate) TouchWeight(key string, nowTs time.Time, userWeight float64) {
+	var (
+		now      = nowTs.UnixNano()
+		bucket   = ss.findBucket(key)
+	)
+
+	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now, userWeight)
+	bucket.countTs = now
+	heap.Fix(&ss.heap, bucket.index)
+}
+
+func (ss *SimpleRate) Set(key string, nowTs time.Time, rate float64) {
+	var (
+		now      = nowTs.UnixNano()
+		bucket   = ss.findBucket(key)
+	)
+
+	bucket.countRate = rate
+	bucket.countTs = now
 	heap.Fix(&ss.heap, bucket.index)
 }
 
 type srateElement struct {
 	Key     string
-	LoCount uint64
-	HiCount uint64
 	LoRate  float64
 	HiRate  float64
 }
+
+type sserSlice []srateElement
+
+func (a sserSlice) Len() int           { return len(a) }
+func (a sserSlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a sserSlice) Less(i, j int) bool { return a[i].LoRate < a[j].LoRate }
 
 func (ss *SimpleRate) GetAll(nowTs time.Time) []srateElement {
 	now := nowTs.UnixNano()
@@ -131,11 +157,27 @@ func (ss *SimpleRate) GetAll(nowTs time.Time) []srateElement {
 		errRate := ss.recount(b.errorRate, b.errorTs, now)
 		elements = append(elements, srateElement{
 			Key:     b.key,
-			LoCount: b.count - b.error,
-			HiCount: b.count,
 			LoRate:  rate - errRate,
 			HiRate:  rate,
 		})
 	}
+	sort.Sort(sort.Reverse(sserSlice(elements)))
 	return elements
 }
+
+func (ss *SimpleRate) GetSingle(key string, nowTs time.Time) (float64, float64) {
+	now := nowTs.UnixNano()
+	if bucket, found := ss.hash[key]; found {
+		//bucket = &ss.buckets[bucketno]
+		rate := ss.recount(bucket.countRate, bucket.countTs, now)
+		errRate := ss.recount(bucket.errorRate, bucket.errorTs, now)
+		return rate - errRate, rate
+	} else {
+		bucket = ss.heap[0]
+		//bucket = &ss.buckets[bucketno]
+		errRate := ss.recount(bucket.countRate, bucket.countTs, now)
+		return 0, errRate
+	}
+
+}
+

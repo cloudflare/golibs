@@ -165,7 +165,7 @@ type sseSlice []RateElement
 
 func (a sseSlice) Len() int           { return len(a) }
 func (a sseSlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a sseSlice) Less(i, j int) bool { return a[i].HiRate < a[j].HiRate }
+func (a sseSlice) Less(i, j int) bool { return a[i].LoRate < a[j].LoRate }
 
 // Get the lower and upper bounds of a range for all tracked elements
 //
