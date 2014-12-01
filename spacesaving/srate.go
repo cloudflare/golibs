@@ -81,8 +81,10 @@ func (ss *SimpleRate) recount(rate float64, lastTs, now int64) float64 {
 	return rate * math.Exp(float64(now-lastTs)*ss.weightHelper)
 }
 
-func (ss *SimpleRate) findBucket(key string) *srateBucket {
-	bucket, found := ss.hash[key];
+func (ss *SimpleRate) findBucket(key string) (*srateBucket, string) {
+	evicted := ""
+
+	bucket, found := ss.hash[key]
 	if found {
 		// we already have the correct bucket
 	} else if len(ss.heap) < ss.size {
@@ -98,38 +100,40 @@ func (ss *SimpleRate) findBucket(key string) *srateBucket {
 		ss.hash[key] = bucket
 		bucket.errorTs, bucket.errorRate =
 			bucket.countTs, bucket.countRate
+		evicted = bucket.key
 		bucket.key = key
 	}
-	return bucket
+	return bucket, evicted
 }
 
 func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 	var (
 		now      = nowTs.UnixNano()
-		bucket   = ss.findBucket(key)
 	)
+	bucket, _ := ss.findBucket(key)
 
 	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now, 1)
 	bucket.countTs = now
 	heap.Fix(&ss.heap, bucket.index)
 }
 
-func (ss *SimpleRate) TouchWeight(key string, nowTs time.Time, userWeight float64) {
+func (ss *SimpleRate) TouchWeight(key string, nowTs time.Time, userWeight float64) (string) {
 	var (
 		now      = nowTs.UnixNano()
-		bucket   = ss.findBucket(key)
 	)
+	bucket, evicted := ss.findBucket(key)
 
 	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now, userWeight)
 	bucket.countTs = now
 	heap.Fix(&ss.heap, bucket.index)
+	return evicted
 }
 
 func (ss *SimpleRate) Set(key string, nowTs time.Time, rate float64) {
 	var (
 		now      = nowTs.UnixNano()
-		bucket   = ss.findBucket(key)
 	)
+	bucket, _ := ss.findBucket(key)
 
 	bucket.countRate = rate
 	bucket.countTs = now
@@ -180,6 +184,5 @@ func (ss *SimpleRate) GetSingle(key string, nowTs time.Time) (float64, float64) 
 	} else {
 		return 0, 0
 	}
-
 }
 
