@@ -172,11 +172,13 @@ func (ss *SimpleRate) GetSingle(key string, nowTs time.Time) (float64, float64) 
 		rate := ss.recount(bucket.countRate, bucket.countTs, now)
 		errRate := ss.recount(bucket.errorRate, bucket.errorTs, now)
 		return rate - errRate, rate
-	} else {
+	} else if len(ss.heap) > 0 {
 		bucket = ss.heap[0]
 		//bucket = &ss.buckets[bucketno]
 		errRate := ss.recount(bucket.countRate, bucket.countTs, now)
 		return 0, errRate
+	} else {
+		return 0, 0
 	}
 
 }
