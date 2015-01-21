@@ -78,7 +78,13 @@ func (d *RemoteDB) Set(key, value string) error {
 	lValue := C.size_t(len(value))
 	if C.ktdbset(d.db, cKey, lKey, cValue, lValue) == 0 {
 		errMsg := d.LastError()
-		return KTError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", value, key, errMsg))
+		valforprint := value
+		truncatedots := ""
+		if len(value) > 80 {
+			valforprint = value[:80]
+			truncatedots = "..."
+		}
+		return KTError(fmt.Sprintf("Failed to add a record with the value %q%s and the key %q: %s", valforprint, truncatedots, key, errMsg))
 	}
 	return nil
 }
