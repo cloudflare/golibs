@@ -4,363 +4,435 @@
 
 package kt
 
-/*
-#cgo pkg-config: kyototycoon
-#include <ktlangc.h>
-#include "kt.h"
-*/
-import "C"
-
 import (
 	"bytes"
-	"fmt"
-	"unsafe"
-	"encoding/gob"
+	"encoding/base64"
+	"errors"
+	"io"
+	"io/ioutil"
+	"mime"
+	"net"
+	"net/http"
+	"net/url"
+	"sort"
+	"strconv"
+	"time"
 )
 
-const (
-	_ = iota
-	DEFAULT_TIMEOUT = -1.
+const DEFAULT_TIMEOUT = 2 * time.Second
+
+// Conn represents a connection to a kyoto tycoon endpoint.
+// It uses a connection pool to efficiently communicate with the server.
+// Conn is safe for concurrent use.
+type Conn struct {
+	timeout   time.Duration
+	host      string
+	transport *http.Transport
+}
+
+// KT supports a "RESTful" interface that is cheaper than the TSV-RPC,
+// We use the TSV interface because the RESTful interface is underspecified.
+// It is not clear how you are to escape the URLs in a couple of cases, specifically
+// around the use of slash as a key. Since we might have to escape the slashes inside
+// a path, that means using the opaque URL field, which I really don't like
+
+// NewConn creates a connection to an Kyoto Tycoon endpoint.
+func NewConn(host string, port int, poolsize int, timeout time.Duration) *Conn {
+	portstr := strconv.Itoa(port)
+	c := &Conn{
+		timeout: timeout,
+		host:    net.JoinHostPort(host, portstr),
+		transport: &http.Transport{
+			ResponseHeaderTimeout: timeout,
+			MaxIdleConnsPerHost:   poolsize,
+		},
+	}
+
+	return c
+}
+
+var (
+	ErrTimeout = errors.New("kt: operation timeout")
+	// the wording on this error is deliberately weird,
+	// because users would search for the string logical inconsistency
+	// in order to find lookup misses.
+	ErrNotFound = errors.New("kt: entry not found aka logical inconsistency")
+	// old gokabinet returned this error on success. Keeping around "for compatibility" until
+	// I can kill it with fire.
+	ErrSuccess = errors.New("kt: success")
 )
 
-// KTError is used for errors using the gokabinet library.  It implements the
-// builtin error interface.
-type KTError string
-
-func (err KTError) Error() string {
-	return string(err)
-}
-
-// DB is the basic type for the gokabinet library. Holds an unexported instance
-// of the database, for interactions.
-type RemoteDB struct {
-	db   *C.KTRDB
-}
-
-// Open opens a connection to a remote database.
-//
-func Open(host string, port int, timeout float32) (*RemoteDB, error) {
-	d := &RemoteDB{db: C.ktdbnew()}
-	cHost := C.CString(host)
-	defer C.free(unsafe.Pointer(cHost))
-	cPort := C.int32_t(port)
-	cTimeout := C.double(timeout)
-
-	if C.ktdbopen(d.db, cHost, cPort, cTimeout) == 0 {
-		errMsg := d.LastError()
-		return nil, KTError(fmt.Sprintf("Error opening %s:%d -- %s", host, port, errMsg))
+// Count returns the number of records in the database
+func (c *Conn) Count() (int, error) {
+	code, m, err := c.doRPC("/rpc/status", nil)
+	if err != nil {
+		return 0, err
 	}
-	return d, nil
-}
-
-// LastError returns a KTError instance representing the last occurred error in
-// the database.
-func (d *RemoteDB) LastError() error {
-	errMsg := C.GoString(C.ktecodename(C.ktdbecode(d.db)))
-	return KTError(errMsg)
-}
-
-// Close the connection to the db
-func (d *RemoteDB) Close() {
-	if (d != nil) {
-		C.ktdbclose(d.db)
-		C.ktdbdel(d.db)
+	if code != 200 {
+		return 0, makeError(m)
 	}
+	return strconv.Atoi(string(m["count"]))
 }
 
-func (d *RemoteDB) Set(key, value string) error {
-
-	cKey := C.CString(key)
-	defer C.free(unsafe.Pointer(cKey))
-	cValue := C.CString(value)
-	defer C.free(unsafe.Pointer(cValue))
-	lKey := C.size_t(len(key))
-	lValue := C.size_t(len(value))
-	if C.ktdbset(d.db, cKey, lKey, cValue, lValue) == 0 {
-		errMsg := d.LastError()
-		valforprint := value
-		truncatedots := ""
-		if len(value) > 80 {
-			valforprint = value[:80]
-			truncatedots = "..."
-		}
-		return KTError(fmt.Sprintf("Failed to add a record with the value %q%s and the key %q: %s", valforprint, truncatedots, key, errMsg))
+// Remove deletes the data at key in the database.
+func (c *Conn) Remove(key string) error {
+	vals := map[string][]byte{
+		"key": []byte(key),
 	}
-	return nil
-}
-
-// Get byte[] directly
-func (d *RemoteDB) GetBytes(key string) ([]byte, error) {
-	var resultLen C.size_t
-	cKey := C.CString(key)
-	defer C.free(unsafe.Pointer(cKey))
-	lKey := C.size_t(len(key))
-	cValue := C.ktdbget(d.db, cKey, lKey, &resultLen)
-	defer C.free(unsafe.Pointer(cValue))
-	if cValue == nil {
-		errMsg := d.LastError()
-		return []byte{}, KTError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
-	}
-	return C.GoBytes(unsafe.Pointer(cValue), C.int(resultLen)), nil
-}
-
-func (d *RemoteDB) Get(key string) (string, error) {
-	var resultLen C.size_t
-	cKey := C.CString(key)
-	defer C.free(unsafe.Pointer(cKey))
-	lKey := C.size_t(len(key))
-	cValue := C.ktdbget(d.db, cKey, lKey, &resultLen)
-	defer C.free(unsafe.Pointer(cValue))
-	if cValue == nil {
-		errMsg := d.LastError()
-		return "", KTError(fmt.Sprintf("Failed to get the record with the key %s: %s", key, errMsg))
-	}
-	return C.GoStringN(cValue, C.int(resultLen)), nil
-}
-
-// GetGob gets a record in the database by its key, decoding from gob format.
-//
-// Returns nil in case of success. In case of errors, it returns a KCError
-// instance explaining what happened.
-func (d *RemoteDB) GetGob(key string, e interface{}) error {
-	data, err := d.Get(key)
+	code, m, err := c.doRPC("/rpc/remove", vals)
 	if err != nil {
 		return err
 	}
-	buffer := bytes.NewBufferString(data)
-	decoder := gob.NewDecoder(buffer)
-	if err := decoder.Decode(e); err != nil {
-		return KTError(fmt.Sprintf("Failed to decode the record with the key %s: %s", key, err))
+	if code != 200 {
+		return makeError(m)
 	}
 	return nil
 }
 
-// SetGob adds a record to the database, stored in gob format.
-//
-// Returns a KCError instance in case of errors, otherwise, returns nil.
-func (d *RemoteDB) SetGob(key string, e interface{}) error {
-	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(e)
+// GetBulk retrieves the keys in the map. The results will be filled in on function return.
+// If a key was not found in the database, it will be removed from the map.
+func (c *Conn) GetBulk(keysAndVals map[string]string) error {
+	m := make(map[string][]byte)
+	for k := range keysAndVals {
+		m[k] = zeroslice
+	}
+	err := c.GetBulkBytes(m)
 	if err != nil {
-		return KTError(fmt.Sprintf("Failed to add a record with the value %s and the key %s: %s", e, key, err))
+		return err
 	}
-	err = d.Set(key, buffer.String())
-	return err
-}
-
-// Removes the key from the DB.
-func (d *RemoteDB) Remove(key string) error {
-	cKey := C.CString(key)
-	defer C.free(unsafe.Pointer(cKey))
-	lKey := C.size_t(len(key))
-	status := C.ktdbremove(d.db, cKey, lKey)
-	if status == 0 {
-		errMsg := d.LastError()
-		return KTError(fmt.Sprintf("Failed to remove the record with the key %s: %s", key, errMsg))
-	}
-	return nil
-}
-
-// Clear removes all records from the database.
-//
-// Returns a KTError in case of failure.
-func (d *RemoteDB) Clear() error {
-	if C.ktdbclear(d.db) == 0 {
-		msg := d.LastError()
-		return KTError(fmt.Sprintf("Failed to clear the database: %s.", msg))
-	}
-	return nil
-}
-
-// Increment increments the value of a numeric record by a given number, and
-// return the incremented value.
-//
-// In case of errors, returns 0 and a KCError instance with detailed error
-// message.
-func (d *RemoteDB) Increment(key string, number int) (int, error) {
-	cKey := C.CString(key)
-	defer C.free(unsafe.Pointer(cKey))
-	lKey := C.size_t(len(key))
-	cValue := C.int64_t(number)
-	v := C.ktdbincrint(d.db, cKey, lKey, cValue, 0)
-	if v == C.INT64_MIN {
-		return 0, KTError("It's not possible to increment a non-numeric record")
-	}
-	return int(v), nil
-}
-
-// Returns the number of elements
-func (d *RemoteDB) Count() (int, error) {
-	var err error
-	v := int(C.ktdbcount(d.db))
-	if v == -1 {
-		err = d.LastError()
-	}
-	return v, err
-}
-
-// MatchPrefix returns a list of keys that matches a prefix or an error in case
-// of failure.
-func (d *RemoteDB) MatchPrefix(prefix string, max int64) ([]string, error) {
-	cprefix := C.CString(prefix)
-	defer C.free(unsafe.Pointer(cprefix))
-	strary := C.match_prefix(d.db, cprefix, C.size_t(max))
-	if strary.v == nil {
-		return nil, d.LastError()
-	}
-	defer C.free_strary(&strary)
-	n := int64(strary.n)
-	if n == 0 {
-		return nil, nil
-	}
-	result := make([]string, n)
-	for i := int64(0); i < n; i++ {
-		result[i] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
-	}
-	return result, nil
-}
-
-// GetBulk fetches all keys in the given map. If a key does not exist, it is deleted from the map before being returned.
-// If the key does exist, the value in the map is set accordingly.
-func (d *RemoteDB) GetBulk(keysAndVals map[string]string) (error) {
-
-	keyList := make([]string, len(keysAndVals))
-	cKeys := C.make_char_array(C.int(len(keysAndVals)))
-	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
-	next := 0;
-	for s, _ := range (keysAndVals) {
-        C.set_array_string(cKeys, C.CString(s), C.int(next))
-		keyList[next] = s
-		next++
-	}
-
-	strary := C.get_bulk_binary(d.db, cKeys, C.size_t(len(keysAndVals)))
-	if strary.v == nil {
-		return d.LastError()
-	}
-	defer C.free_strary(&strary)
-	n := int64(strary.n)
-	if n == 0 {
-		return nil
-	}
-
-	for i := int64(0); i < n; i++ {
-		if C.bool(C.strary_present(&strary, C.int64_t(i))) {
-			keysAndVals[keyList[i]] = C.GoString(C.strary_item(&strary, C.int64_t(i)))
+	for k := range keysAndVals {
+		b, ok := m[k]
+		if ok {
+			keysAndVals[k] = string(b)
 		} else {
-			delete(keysAndVals, keyList[i])
+			delete(keysAndVals, k)
 		}
 	}
 	return nil
 }
 
-// GetBulkBytes fetches all keys in the given map. If a key does not exist, it is deleted from the map before being returned.
-// If the key does exist, the value in the map is set accordingly.
-func (d *RemoteDB) GetBulkBytes(keysAndVals map[string][]byte) (error) {
-
-	keyList := make([]string, len(keysAndVals))
-	cKeys := C.make_char_array(C.int(len(keysAndVals)))
-	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
-	next := 0;
-	for s, _ := range (keysAndVals) {
-        C.set_array_string(cKeys, C.CString(s), C.int(next))
-		keyList[next] = s
-		next++
+// Get retrieves the data stored at key. ErrNotFound is
+// returned if no such data exists
+func (c *Conn) Get(key string) (string, error) {
+	s, err := c.GetBytes(key)
+	if err != nil {
+		return "", err
 	}
+	return string(s), nil
+}
 
-	strary := C.get_bulk_binary(d.db, cKeys, C.size_t(len(keysAndVals)))
-	if strary.v == nil {
-		return d.LastError()
+// GetBytes retrieves the data stored at key in the format of a byte slice
+// A nil slice and nil error is returned if no data at key exists.
+func (c *Conn) GetBytes(key string) ([]byte, error) {
+	vals := map[string][]byte{
+		"key": []byte(key),
 	}
-	defer C.free_strary(&strary)
-	n := int64(strary.n)
-	if n == 0 {
+	code, m, err := c.doRPC("/rpc/get", vals)
+	if err != nil {
+		return nil, err
+	}
+	switch code {
+	case 200:
+		break
+	case 450:
+		return nil, ErrNotFound
+	default:
+		return nil, makeError(m)
+	}
+	return m["value"], nil
+
+}
+
+// Set stores the data at key
+func (c *Conn) Set(key string, value []byte) error {
+	vals := map[string][]byte{
+		"key":   []byte(key),
+		"value": value,
+	}
+	code, m, err := c.doRPC("/rpc/set", vals)
+	if err != nil {
+		return err
+	}
+	switch code {
+	case 200:
 		return nil
+	default:
+		return makeError(m)
 	}
+}
 
-	for i := int64(0); i < n; i++ {
-		if C.bool(C.strary_present(&strary, C.int64_t(i))) {
-			keysAndVals[keyList[i]] = C.GoBytes(unsafe.Pointer(C.strary_item(&strary, C.int64_t(i))), C.int(C.strary_size(&strary, C.int64_t(i))))
-		} else {
-			delete(keysAndVals, keyList[i])
+var zeroslice = []byte("0")
+
+// GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
+// If a key was not found in the database, it will be removed from the map.
+func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
+	keystransmit := make(map[string][]byte)
+	for k, _ := range keys {
+		keystransmit["_"+k] = zeroslice
+	}
+	code, m, err := c.doRPC("/rpc/get_bulk", keystransmit)
+	if err != nil {
+		return err
+	}
+	if code != 200 {
+		return makeError(m)
+	}
+	for k := range keys {
+		val, ok := m["_"+k]
+		if !ok {
+			delete(keys, k)
+			continue
 		}
+		keys[k] = val
 	}
 	return nil
 }
 
-// RemoveBulk removes all of the keys passed in at once.
-func (d *RemoteDB) RemoveBulk(keys []string) (int64, error) {
-
-	var err error
-	cKeys := C.make_char_array(C.int(len(keys)))
-	defer C.free_char_array(cKeys, C.int(len(keys)))
-	next := 0;
-	for _, s := range (keys) {
-        C.set_array_string(cKeys, C.CString(s), C.int(next))
-		next++
+// SetBulk stores the values in the map.
+func (c *Conn) SetBulk(values map[string]string) (int64, error) {
+	vals := make(map[string][]byte)
+	for k, v := range values {
+		vals["_"+k] = []byte(v)
 	}
-
-	n := int64(C.ktdbremovebulkbinary(d.db, cKeys, C.size_t(len(keys))))
-	if n == -1 {
-		err = d.LastError()
+	code, m, err := c.doRPC("/rpc/set_bulk", vals)
+	if err != nil {
+		return 0, err
 	}
-	return n, err
+	if code != 200 {
+		return 0, makeError(m)
+	}
+	return strconv.ParseInt(string(m["num"]), 10, 64)
 }
 
-// SetBulk sets all of the keys passed in at once.
-func (d *RemoteDB) SetBulk(keysAndVals map[string]string) (int64, error) {
-
-	var err error
-	cKeys := C.make_char_array(C.int(len(keysAndVals)))
-	cVals := C.make_char_array(C.int(len(keysAndVals)))
-	defer C.free_char_array(cKeys, C.int(len(keysAndVals)))
-	defer C.free_char_array(cVals, C.int(len(keysAndVals)))
-	next := 0;
-	for k, v := range (keysAndVals) {
-        C.set_array_string(cKeys, C.CString(k), C.int(next))
-        C.set_array_string(cVals, C.CString(v), C.int(next))
-		next++
+// RemoveBulk deletes the values
+func (c *Conn) RemoveBulk(keys []string) (int64, error) {
+	vals := make(map[string][]byte)
+	for _, k := range keys {
+		vals["_"+k] = zeroslice
 	}
-
-	n := int64(C.ktdbsetbulkbinary(d.db, cKeys, C.size_t(len(keysAndVals)), cVals, C.size_t(len(keysAndVals))))
-	if n == -1 {
-		err = d.LastError()
+	code, m, err := c.doRPC("/rpc/remove_bulk", vals)
+	if err != nil {
+		return 0, err
 	}
-	return n, err
+	if code != 200 {
+		return 0, makeError(m)
+	}
+	return strconv.ParseInt(string(m["num"]), 10, 64)
 }
 
-// Plays the passed in lua script, returning the result as a key->value map.
-func (d *RemoteDB) PlayScript(script string, params map[string]string) (map[string]string, error) {
+// MatchPrefix performs the match_prefix operation against the server
+// It returns a sorted list of strings.
+// The error may be ErrSuccess in the case that no records were found.
+// This is for compatibility with the old gokabinet library.
+func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
+	keystransmit := map[string][]byte{
+		"prefix": []byte(key),
+		"max":    []byte(strconv.FormatInt(maxrecords, 10)),
+	}
+	code, m, err := c.doRPC("/rpc/match_prefix", keystransmit)
+	if err != nil {
+		return nil, err
+	}
+	if code != 200 {
+		return nil, makeError(m)
+	}
+	res := make([]string, 0, len(m))
+	for k := range m {
+		if k[0] == '_' {
+			res = append(res, string(k[1:]))
+		}
+	}
+	if len(res) == 0 {
+		// yeah, gokabinet was weird here.
+		return nil, ErrSuccess
+	}
+	// kt spits the prefixes out in sorted order
+	// so do that. Users depend on the order.
+	sort.StringSlice(res).Sort()
+	return res, nil
+}
 
-	result := map[string]string{}
-	cScript := C.CString(script)
-	defer C.free(unsafe.Pointer(cScript))
+// Do an RPC call against the KT endpoint.
+func (c *Conn) doRPC(path string, values map[string][]byte) (code int, vals map[string][]byte, err error) {
+	url := &url.URL{
+		Scheme: "http",
+		Host:   c.host,
+		Path:   path,
+	}
+	req := &http.Request{
+		Method: "POST",
+		URL:    url,
+		Header: make(http.Header),
+	}
+	req.Header.Set("Content-Type", "text/tab-separated-values; colenc=B")
+	body := tsvEncode(values)
 
-	paramSize := len(params) * 2
-	cParams := C.make_char_array(C.int(paramSize))
-	defer C.free_char_array(cParams, C.int(paramSize))
-	next := 0;
-	for k, v := range (params) {
-        C.set_array_string(cParams, C.CString(k), C.int(next))
-		next++
-        C.set_array_string(cParams, C.CString(v), C.int(next))
-		next++
+	bodyReader := bytes.NewBuffer(body)
+	req.Body = ioutil.NopCloser(bodyReader)
+	req.ContentLength = int64(len(body))
+	t := time.Now()
+	resp, err := c.transport.RoundTrip(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	dur := time.Since(t)
+	timeout := c.timeout - dur
+	if timeout < 0 {
+		return 0, nil, ErrTimeout
+	}
+	resultBody, err := timeoutRead(resp.Body, timeout)
+	if err != nil {
+		return 0, nil, err
+	}
+	m := decodeValues(resultBody, resp.Header.Get("Content-Type"))
+	return resp.StatusCode, m, nil
+}
+
+// Encode the request body in base64 encoded TSV
+func tsvEncode(values map[string][]byte) []byte {
+	var bufsize int
+	for k, v := range values {
+		// length of key
+		bufsize += base64.StdEncoding.EncodedLen(len(k))
+		// tab
+		bufsize += 1
+		// value
+		bufsize += base64.StdEncoding.EncodedLen(len(v))
+		// newline
+		bufsize += 1
+	}
+	buf := make([]byte, bufsize)
+	var n int
+	for k, v := range values {
+		base64.StdEncoding.Encode(buf[n:], []byte(k))
+		n += base64.StdEncoding.EncodedLen(len(k))
+		buf[n] = '\t'
+		n++
+		base64.StdEncoding.Encode(buf[n:], v)
+		n += base64.StdEncoding.EncodedLen(len(v))
+		buf[n] = '\n'
+		n++
+	}
+	return buf
+}
+
+func timeoutRead(body io.ReadCloser, timeout time.Duration) ([]byte, error) {
+	type readResult struct {
+		buf []byte
+		err error
+	}
+	ch := make(chan readResult, 1)
+	go func() {
+		buf, err := ioutil.ReadAll(body)
+		ch <- readResult{buf, err}
+	}()
+	defer body.Close()
+	var res readResult
+	select {
+	case <-time.After(timeout):
+		return nil, ErrTimeout
+	case res = <-ch:
+		return res.buf, res.err
+	}
+}
+
+// decodeValues takes a response from an KT RPC call and turns it into the
+// values that it returned.
+//
+// KT can return values in 3 different formats, Tab separated values (TSV) without any field encoding,
+// TSV with fields base64 encoded or TSV with URL encoding.
+// KT does not give you any option as to the format that it returns, so we have to implement all of them
+func decodeValues(buf []byte, contenttype string) map[string][]byte {
+	// Find out which encoding was used
+	_, params, err := mime.ParseMediaType(contenttype)
+	if err != nil {
+		return nil
+	}
+	if len(buf) == 0 {
+		return nil
+	}
+	var decodef decodefunc
+	switch params["colenc"] {
+	case "B":
+		decodef = base64Decode
+	case "U":
+		decodef = urlDecode
+	case "":
+		decodef = identityDecode
 	}
 
-	strary := C.play_script(d.db, cScript, cParams, C.size_t(paramSize))
-	if strary.v == nil {
-		return nil, d.LastError()
+	kv := make(map[string][]byte)
+	b := bytes.NewBuffer(buf)
+	for {
+		key, err := b.ReadBytes('\t')
+		if err != nil {
+			return kv
+		}
+		key = decodef(key[:len(key)-1])
+		value, err := b.ReadBytes('\n')
+		if len(value) > 0 {
+			fieldlen := len(value) - 1
+			if value[len(value)-1] != '\n' {
+				fieldlen = len(value)
+			}
+			value = decodef(value[:fieldlen])
+			kv[string(key)] = value
+		}
+		if err != nil {
+			return kv
+		}
 	}
-	defer C.free_strary(&strary)
-	n := int64(strary.n)
-	if n == 0 {
-		return result, nil
-	}
+}
 
-	for i := int64(0); i < n; i++ {
-		result[C.GoString(C.strary_item(&strary, C.int64_t(i)))] = C.GoString(C.strary_item(&strary, C.int64_t(i+1)))
-		i++
+// decodefunc takes a byte slice and decodes the
+// value in place. It returns a slice pointing into
+// the original byte slice. It is used for decoding the
+// individual fields of the TSV that kt returns
+type decodefunc func([]byte) []byte
+
+// Don't do anything, this is pure TSV
+func identityDecode(b []byte) []byte {
+	return b
+}
+
+// Base64 decode each of the field
+func base64Decode(b []byte) []byte {
+	n, _ := base64.StdEncoding.Decode(b, b)
+	return b[:n]
+}
+
+// Decode % escaped URL format
+func urlDecode(b []byte) []byte {
+	res := b
+	resi := 0
+	for i := 0; i < len(b); i++ {
+		if b[i] != '%' {
+			res[resi] = b[i]
+			resi++
+			continue
+		}
+		res[resi] = unhex(b[i+1])<<4 | unhex(b[i+2])
+		resi++
+		i += 2
 	}
-	return result, nil
+	return res[:resi]
+}
+
+// copied from net/url
+func unhex(c byte) byte {
+	switch {
+	case '0' <= c && c <= '9':
+		return c - '0'
+	case 'a' <= c && c <= 'f':
+		return c - 'a' + 10
+	case 'A' <= c && c <= 'F':
+		return c - 'A' + 10
+	}
+	return 0
+}
+
+// TODO: make this return errors that can be introspected more easily
+// and make it trim components of the error to filter out unused information.
+func makeError(m map[string][]byte) error {
+	return errors.New(string(m["ERROR"]))
 }
