@@ -329,23 +329,16 @@ func tsvEncode(values []kv) []byte {
 }
 
 func timeoutRead(body io.ReadCloser, timeout time.Duration) ([]byte, error) {
-	type readResult struct {
-		buf []byte
-		err error
-	}
-	ch := make(chan readResult, 1)
-	go func() {
-		buf, err := ioutil.ReadAll(body)
-		ch <- readResult{buf, err}
-	}()
-	select {
-	case <-time.After(timeout):
+	t := time.AfterFunc(timeout, func() {
 		body.Close()
-		return nil, ErrTimeout
-	case res := <-ch:
+	})
+	buf, err := ioutil.ReadAll(body)
+	if t.Stop() {
 		body.Close()
-		return res.buf, res.err
+	} else {
+		err = ErrTimeout
 	}
+	return buf, err
 }
 
 // decodeValues takes a response from an KT RPC call and turns it into the

@@ -26,5 +26,4 @@ func BenchmarkSetLarge(b *testing.B) {
 		str := strconv.Itoa(i)
 		conn.Set(str, large[:])
 	}
-
 }
