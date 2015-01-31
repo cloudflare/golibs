@@ -15,7 +15,7 @@ const (
 	KTPORT = 23034
 )
 
-func startServer(t *testing.T) *exec.Cmd {
+func startServer(t testing.TB) *exec.Cmd {
 	port := strconv.Itoa(KTPORT)
 
 	if _, err := net.Dial("tcp", KTHOST+":"+port); err == nil {
@@ -41,7 +41,7 @@ func startServer(t *testing.T) *exec.Cmd {
 	}
 }
 
-func haltServer(cmd *exec.Cmd, t *testing.T) {
+func haltServer(cmd *exec.Cmd, t testing.TB) {
 	if err := cmd.Process.Kill(); err != nil {
 		t.Fatal("failed to halt KT: ", err)
 	}
