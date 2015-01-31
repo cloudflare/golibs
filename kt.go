@@ -10,7 +10,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -351,22 +350,28 @@ func timeoutRead(body io.ReadCloser, timeout time.Duration) ([]byte, error) {
 // TSV with fields base64 encoded or TSV with URL encoding.
 // KT does not give you any option as to the format that it returns, so we have to implement all of them
 func decodeValues(buf []byte, contenttype string) map[string][]byte {
-	// Find out which encoding was used
-	_, params, err := mime.ParseMediaType(contenttype)
-	if err != nil {
-		return nil
-	}
 	if len(buf) == 0 {
 		return nil
 	}
+	// Ideally, we should parse the mime media type here,
+	// but this is an expensive operation because mime is just
+	// that awful.
+	//
+	// KT responses are pretty simple and we can rely
+	// on it putting the parameter of colenc=[BU] at
+	// the end of the string. Just look for B, U or S
+	// (last character of tab-separated-values)
+	// to figure out which field encoding is used.
 	var decodef decodefunc
-	switch params["colenc"] {
-	case "B":
+	switch contenttype[len(contenttype)-1] {
+	case 'B':
 		decodef = base64Decode
-	case "U":
+	case 'U':
 		decodef = urlDecode
-	case "":
+	case 's':
 		decodef = identityDecode
+	default:
+		panic("kt responded with unknown content-type: " + contenttype)
 	}
 
 	kv := make(map[string][]byte)
