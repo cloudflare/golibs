@@ -252,6 +252,15 @@ func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
 	return res, nil
 }
 
+// prefabHeader is the header that rpc request share.
+var prefabHeader = makeprefab()
+
+func makeprefab() http.Header {
+	r := make(http.Header)
+	r.Set("Content-Type", "text/tab-separated-values; colenc=B")
+	return r
+}
+
 // Do an RPC call against the KT endpoint.
 func (c *Conn) doRPC(path string, values map[string][]byte) (code int, vals map[string][]byte, err error) {
 	url := &url.URL{
@@ -262,9 +271,8 @@ func (c *Conn) doRPC(path string, values map[string][]byte) (code int, vals map[
 	req := &http.Request{
 		Method: "POST",
 		URL:    url,
-		Header: make(http.Header),
+		Header: prefabHeader,
 	}
-	req.Header.Set("Content-Type", "text/tab-separated-values; colenc=B")
 	body := tsvEncode(values)
 
 	bodyReader := bytes.NewBuffer(body)
