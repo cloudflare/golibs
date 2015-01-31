@@ -333,12 +333,12 @@ func timeoutRead(body io.ReadCloser, timeout time.Duration) ([]byte, error) {
 		buf, err := ioutil.ReadAll(body)
 		ch <- readResult{buf, err}
 	}()
-	defer body.Close()
-	var res readResult
 	select {
 	case <-time.After(timeout):
+		body.Close()
 		return nil, ErrTimeout
-	case res = <-ch:
+	case res := <-ch:
+		body.Close()
 		return res.buf, res.err
 	}
 }
