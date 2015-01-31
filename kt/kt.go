@@ -29,11 +29,11 @@ type Conn struct {
 	transport *http.Transport
 }
 
-// KT supports a "RESTful" interface that is cheaper than the TSV-RPC,
-// We use the TSV interface because the RESTful interface is underspecified.
-// It is not clear how you are to escape the URLs in a couple of cases, specifically
-// around the use of slash as a key. Since we might have to escape the slashes inside
-// a path, that means using the opaque URL field, which I really don't like
+// KT has 2 interfaces, A restful one and an RPC one.
+// The RESTful interface is usually much faster than
+// the RPC one, but not all methods are implemented.
+// Use the RESTFUL interfaces when we can and fallback
+// to the RPC one when needed.
 
 // NewConn creates a connection to an Kyoto Tycoon endpoint.
 func NewConn(host string, port int, poolsize int, timeout time.Duration) *Conn {
@@ -75,13 +75,15 @@ func (c *Conn) Count() (int, error) {
 
 // Remove deletes the data at key in the database.
 func (c *Conn) Remove(key string) error {
-	vals := []kv{{"key", []byte(key)}}
-	code, m, err := c.doRPC("/rpc/remove", vals)
+	code, m, err := c.doREST("DELETE", key, nil)
 	if err != nil {
 		return err
 	}
-	if code != 200 {
-		return makeError(m)
+	if code == 404 {
+		return ErrNotFound
+	}
+	if code != 204 {
+		return errors.New(string(m))
 	}
 	return nil
 }
@@ -121,39 +123,33 @@ func (c *Conn) Get(key string) (string, error) {
 // GetBytes retrieves the data stored at key in the format of a byte slice
 // A nil slice and nil error is returned if no data at key exists.
 func (c *Conn) GetBytes(key string) ([]byte, error) {
-	vals := []kv{{"key", []byte(key)}}
-	code, m, err := c.doRPC("/rpc/get", vals)
+	code, m, err := c.doREST("GET", key, nil)
 	if err != nil {
 		return nil, err
 	}
 	switch code {
 	case 200:
 		break
-	case 450:
+	case 404:
 		return nil, ErrNotFound
 	default:
-		return nil, makeError(m)
+		return nil, errors.New(string(m))
 	}
-	return m["value"], nil
+	return m, nil
 
 }
 
 // Set stores the data at key
 func (c *Conn) Set(key string, value []byte) error {
-	vals := []kv{
-		{"key", []byte(key)},
-		{"value", value},
-	}
-	code, m, err := c.doRPC("/rpc/set", vals)
+	code, body, err := c.doREST("PUT", key, value)
 	if err != nil {
 		return err
 	}
-	switch code {
-	case 200:
-		return nil
-	default:
-		return makeError(m)
+	if code != 201 {
+		return errors.New(string(body))
 	}
+
+	return nil
 }
 
 var zeroslice = []byte("0")
@@ -446,4 +442,77 @@ func unhex(c byte) byte {
 // and make it trim components of the error to filter out unused information.
 func makeError(m map[string][]byte) error {
 	return errors.New(string(m["ERROR"]))
+}
+
+// empty header for REST calls.
+var emptyHeader = make(http.Header)
+
+func (c *Conn) doREST(op string, key string, val []byte) (code int, body []byte, err error) {
+	newkey := urlenc(key)
+	url := &url.URL{
+		Scheme: "http",
+		Host:   c.host,
+		Opaque: newkey,
+	}
+	req := &http.Request{
+		Method: op,
+		URL:    url,
+		Header: emptyHeader,
+	}
+	req.ContentLength = int64(len(val))
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(val))
+	t := time.Now()
+	resp, err := c.transport.RoundTrip(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	dur := time.Since(t)
+	timeout := c.timeout - dur
+	if timeout < 0 {
+		return 0, nil, ErrTimeout
+	}
+	resultBody, err := timeoutRead(resp.Body, timeout)
+	return resp.StatusCode, resultBody, err
+}
+
+// encode the key for use in a RESTFUL url
+// KT requires that keys with slashes in them
+// are escaped. For safety, escape everything that is
+// not alphanumeric or _
+func urlenc(s string) string {
+	// scan through one time to see if
+	// we can get around allocating the string.
+	var i int
+	for i = 0; i < len(s); i++ {
+		if !isRestSafe(s[i]) {
+			break
+		}
+	}
+	if i == len(s) {
+		return s
+	}
+	b := make([]byte, 0, len(s)*3/2)
+	b = append(b, '/')
+	for i = 0; i < len(s); i++ {
+		if !isRestSafe(s[i]) {
+			b = append(b, '%')
+			b = strconv.AppendInt(b, int64(s[i]), 16)
+		} else {
+			b = append(b, s[i])
+		}
+	}
+	return string(b)
+}
+
+func isRestSafe(c uint8) bool {
+	if c >= '0' && c <= '9' {
+		return true
+	} else if c >= 'A' && c <= 'Z' {
+		return true
+	} else if c >= 'a' && c <= 'z' {
+		return true
+	} else if c == '_' {
+		return true
+	}
+	return false
 }
