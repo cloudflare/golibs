@@ -75,9 +75,7 @@ func (c *Conn) Count() (int, error) {
 
 // Remove deletes the data at key in the database.
 func (c *Conn) Remove(key string) error {
-	vals := map[string][]byte{
-		"key": []byte(key),
-	}
+	vals := []kv{{"key", []byte(key)}}
 	code, m, err := c.doRPC("/rpc/remove", vals)
 	if err != nil {
 		return err
@@ -123,9 +121,7 @@ func (c *Conn) Get(key string) (string, error) {
 // GetBytes retrieves the data stored at key in the format of a byte slice
 // A nil slice and nil error is returned if no data at key exists.
 func (c *Conn) GetBytes(key string) ([]byte, error) {
-	vals := map[string][]byte{
-		"key": []byte(key),
-	}
+	vals := []kv{{"key", []byte(key)}}
 	code, m, err := c.doRPC("/rpc/get", vals)
 	if err != nil {
 		return nil, err
@@ -144,9 +140,9 @@ func (c *Conn) GetBytes(key string) ([]byte, error) {
 
 // Set stores the data at key
 func (c *Conn) Set(key string, value []byte) error {
-	vals := map[string][]byte{
-		"key":   []byte(key),
-		"value": value,
+	vals := []kv{
+		{"key", []byte(key)},
+		{"value", value},
 	}
 	code, m, err := c.doRPC("/rpc/set", vals)
 	if err != nil {
@@ -165,9 +161,9 @@ var zeroslice = []byte("0")
 // GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
 func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
-	keystransmit := make(map[string][]byte)
+	keystransmit := make([]kv, 0, len(keys))
 	for k, _ := range keys {
-		keystransmit["_"+k] = zeroslice
+		keystransmit = append(keystransmit, kv{"_" + k, zeroslice})
 	}
 	code, m, err := c.doRPC("/rpc/get_bulk", keystransmit)
 	if err != nil {
@@ -189,9 +185,9 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 
 // SetBulk stores the values in the map.
 func (c *Conn) SetBulk(values map[string]string) (int64, error) {
-	vals := make(map[string][]byte)
+	vals := make([]kv, 0, len(values))
 	for k, v := range values {
-		vals["_"+k] = []byte(v)
+		vals = append(vals, kv{"_" + k, []byte(v)})
 	}
 	code, m, err := c.doRPC("/rpc/set_bulk", vals)
 	if err != nil {
@@ -205,9 +201,9 @@ func (c *Conn) SetBulk(values map[string]string) (int64, error) {
 
 // RemoveBulk deletes the values
 func (c *Conn) RemoveBulk(keys []string) (int64, error) {
-	vals := make(map[string][]byte)
+	vals := make([]kv, 0, len(keys))
 	for _, k := range keys {
-		vals["_"+k] = zeroslice
+		vals = append(vals, kv{"_" + k, zeroslice})
 	}
 	code, m, err := c.doRPC("/rpc/remove_bulk", vals)
 	if err != nil {
@@ -224,9 +220,9 @@ func (c *Conn) RemoveBulk(keys []string) (int64, error) {
 // The error may be ErrSuccess in the case that no records were found.
 // This is for compatibility with the old gokabinet library.
 func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
-	keystransmit := map[string][]byte{
-		"prefix": []byte(key),
-		"max":    []byte(strconv.FormatInt(maxrecords, 10)),
+	keystransmit := []kv{
+		{"prefix", []byte(key)},
+		{"max", []byte(strconv.FormatInt(maxrecords, 10))},
 	}
 	code, m, err := c.doRPC("/rpc/match_prefix", keystransmit)
 	if err != nil {
@@ -260,8 +256,17 @@ func makeprefab() http.Header {
 	return r
 }
 
+// we use an explicit structure here rather than a map[string][]byte
+// because for some operations, we care about the order
+// and since we only care about direct key lookup in a few
+// cases where the sets are small, we can amortize the cost of the map
+type kv struct {
+	key   string
+	value []byte
+}
+
 // Do an RPC call against the KT endpoint.
-func (c *Conn) doRPC(path string, values map[string][]byte) (code int, vals map[string][]byte, err error) {
+func (c *Conn) doRPC(path string, values []kv) (code int, vals map[string][]byte, err error) {
 	url := &url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -296,27 +301,27 @@ func (c *Conn) doRPC(path string, values map[string][]byte) (code int, vals map[
 }
 
 // Encode the request body in base64 encoded TSV
-func tsvEncode(values map[string][]byte) []byte {
+func tsvEncode(values []kv) []byte {
 	var bufsize int
-	for k, v := range values {
+	for _, kv := range values {
 		// length of key
-		bufsize += base64.StdEncoding.EncodedLen(len(k))
+		bufsize += base64.StdEncoding.EncodedLen(len(kv.key))
 		// tab
 		bufsize += 1
 		// value
-		bufsize += base64.StdEncoding.EncodedLen(len(v))
+		bufsize += base64.StdEncoding.EncodedLen(len(kv.value))
 		// newline
 		bufsize += 1
 	}
 	buf := make([]byte, bufsize)
 	var n int
-	for k, v := range values {
-		base64.StdEncoding.Encode(buf[n:], []byte(k))
-		n += base64.StdEncoding.EncodedLen(len(k))
+	for _, kv := range values {
+		base64.StdEncoding.Encode(buf[n:], []byte(kv.key))
+		n += base64.StdEncoding.EncodedLen(len(kv.key))
 		buf[n] = '\t'
 		n++
-		base64.StdEncoding.Encode(buf[n:], v)
-		n += base64.StdEncoding.EncodedLen(len(v))
+		base64.StdEncoding.Encode(buf[n:], kv.value)
+		n += base64.StdEncoding.EncodedLen(len(kv.value))
 		buf[n] = '\n'
 		n++
 	}
