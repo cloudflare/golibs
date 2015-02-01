@@ -13,7 +13,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"time"
 )
@@ -70,7 +69,7 @@ func (c *Conn) Count() (int, error) {
 	if code != 200 {
 		return 0, makeError(m)
 	}
-	return strconv.Atoi(string(m["count"]))
+	return strconv.Atoi(string(findRec(m, "count").value))
 }
 
 // Remove deletes the data at key in the database.
@@ -159,6 +158,10 @@ var zeroslice = []byte("0")
 func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 	keystransmit := make([]kv, 0, len(keys))
 	for k, _ := range keys {
+		// we set the value to nil because we want a sentinel value
+		// for when no data was found. This is important for
+		// when we remove the not found keys from the map
+		keys[k] = nil
 		keystransmit = append(keystransmit, kv{"_" + k, zeroslice})
 	}
 	code, m, err := c.doRPC("/rpc/get_bulk", keystransmit)
@@ -168,13 +171,16 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 	if code != 200 {
 		return makeError(m)
 	}
-	for k := range keys {
-		val, ok := m["_"+k]
-		if !ok {
-			delete(keys, k)
+	for _, kv := range m {
+		if kv.key[0] != '_' {
 			continue
 		}
-		keys[k] = val
+		keys[kv.key[1:]] = kv.value
+	}
+	for k, v := range keys {
+		if v == nil {
+			delete(keys, k)
+		}
 	}
 	return nil
 }
@@ -192,7 +198,7 @@ func (c *Conn) SetBulk(values map[string]string) (int64, error) {
 	if code != 200 {
 		return 0, makeError(m)
 	}
-	return strconv.ParseInt(string(m["num"]), 10, 64)
+	return strconv.ParseInt(string(findRec(m, "num").value), 10, 64)
 }
 
 // RemoveBulk deletes the values
@@ -208,7 +214,7 @@ func (c *Conn) RemoveBulk(keys []string) (int64, error) {
 	if code != 200 {
 		return 0, makeError(m)
 	}
-	return strconv.ParseInt(string(m["num"]), 10, 64)
+	return strconv.ParseInt(string(findRec(m, "num").value), 10, 64)
 }
 
 // MatchPrefix performs the match_prefix operation against the server
@@ -228,18 +234,15 @@ func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
 		return nil, makeError(m)
 	}
 	res := make([]string, 0, len(m))
-	for k := range m {
-		if k[0] == '_' {
-			res = append(res, string(k[1:]))
+	for _, kv := range m {
+		if kv.key[0] == '_' {
+			res = append(res, string(kv.key[1:]))
 		}
 	}
 	if len(res) == 0 {
 		// yeah, gokabinet was weird here.
 		return nil, ErrSuccess
 	}
-	// kt spits the prefixes out in sorted order
-	// so do that. Users depend on the order.
-	sort.StringSlice(res).Sort()
 	return res, nil
 }
 
@@ -262,7 +265,7 @@ type kv struct {
 }
 
 // Do an RPC call against the KT endpoint.
-func (c *Conn) doRPC(path string, values []kv) (code int, vals map[string][]byte, err error) {
+func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) {
 	url := &url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -343,7 +346,7 @@ func timeoutRead(body io.ReadCloser, timeout time.Duration) ([]byte, error) {
 // KT can return values in 3 different formats, Tab separated values (TSV) without any field encoding,
 // TSV with fields base64 encoded or TSV with URL encoding.
 // KT does not give you any option as to the format that it returns, so we have to implement all of them
-func decodeValues(buf []byte, contenttype string) map[string][]byte {
+func decodeValues(buf []byte, contenttype string) []kv {
 	if len(buf) == 0 {
 		return nil
 	}
@@ -353,7 +356,7 @@ func decodeValues(buf []byte, contenttype string) map[string][]byte {
 	//
 	// KT responses are pretty simple and we can rely
 	// on it putting the parameter of colenc=[BU] at
-	// the end of the string. Just look for B, U or S
+	// the end of the string. Just look for B, U or s
 	// (last character of tab-separated-values)
 	// to figure out which field encoding is used.
 	var decodef decodefunc
@@ -368,12 +371,20 @@ func decodeValues(buf []byte, contenttype string) map[string][]byte {
 		panic("kt responded with unknown content-type: " + contenttype)
 	}
 
-	kv := make(map[string][]byte)
+	// Because of the encoding, we can tell how many records there
+	// are by scanning through the input and counting the \n's
+	var recCount int
+	for _, v := range buf {
+		if v == '\n' {
+			recCount++
+		}
+	}
+	result := make([]kv, 0, recCount)
 	b := bytes.NewBuffer(buf)
 	for {
 		key, err := b.ReadBytes('\t')
 		if err != nil {
-			return kv
+			return result
 		}
 		key = decodef(key[:len(key)-1])
 		value, err := b.ReadBytes('\n')
@@ -383,10 +394,10 @@ func decodeValues(buf []byte, contenttype string) map[string][]byte {
 				fieldlen = len(value)
 			}
 			value = decodef(value[:fieldlen])
-			kv[string(key)] = value
+			result = append(result, kv{string(key), value})
 		}
 		if err != nil {
-			return kv
+			return result
 		}
 	}
 }
@@ -440,8 +451,21 @@ func unhex(c byte) byte {
 
 // TODO: make this return errors that can be introspected more easily
 // and make it trim components of the error to filter out unused information.
-func makeError(m map[string][]byte) error {
-	return errors.New(string(m["ERROR"]))
+func makeError(m []kv) error {
+	kv := findRec(m, "ERROR")
+	if kv.key == "" {
+		errors.New("kt: generic error")
+	}
+	return errors.New(string(kv.value))
+}
+
+func findRec(kvs []kv, key string) kv {
+	for _, kv := range kvs {
+		if kv.key == key {
+			return kv
+		}
+	}
+	return kv{}
 }
 
 // empty header for REST calls.
