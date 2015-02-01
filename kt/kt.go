@@ -504,20 +504,20 @@ func (c *Conn) doREST(op string, key string, val []byte) (code int, body []byte,
 // are escaped. For safety, escape everything that is
 // not alphanumeric or _
 func urlenc(s string) string {
-	// scan through one time to see if
-	// we can get around allocating the string.
-	var i int
-	for i = 0; i < len(s); i++ {
+	// scan through one time to see how many
+	// characters we need to escape.
+	var numescapes int
+	for i := 0; i < len(s); i++ {
 		if !isRestSafe(s[i]) {
-			break
+			numescapes++
 		}
 	}
-	if i == len(s) {
+	if numescapes == 0 {
 		return s
 	}
-	b := make([]byte, 0, len(s)*3/2)
+	b := make([]byte, 0, len(s)+1+2*numescapes)
 	b = append(b, '/')
-	for i = 0; i < len(s); i++ {
+	for i := 0; i < len(s); i++ {
 		if !isRestSafe(s[i]) {
 			b = append(b, '%')
 			b = strconv.AppendInt(b, int64(s[i]), 16)
