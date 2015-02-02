@@ -443,7 +443,7 @@ func makeError(m []kv) error {
 	if kv.key == "" {
 		errors.New("kt: generic error")
 	}
-	return errors.New(string(kv.value))
+	return errors.New("kt: " + string(kv.value))
 }
 
 func findRec(kvs []kv, key string) kv {
