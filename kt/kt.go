@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -281,19 +280,20 @@ func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) 
 	bodyReader := bytes.NewBuffer(body)
 	req.Body = ioutil.NopCloser(bodyReader)
 	req.ContentLength = int64(len(body))
-	t := time.Now()
+	t := time.AfterFunc(c.timeout, func() {
+		c.transport.CancelRequest(req)
+	})
 	resp, err := c.transport.RoundTrip(req)
 	if err != nil {
+		if !t.Stop() {
+			err = ErrTimeout
+		}
 		return 0, nil, err
 	}
-	dur := time.Since(t)
-	timeout := c.timeout - dur
-	if timeout < 0 {
+	resultBody, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !t.Stop() {
 		return 0, nil, ErrTimeout
-	}
-	resultBody, err := timeoutRead(resp.Body, timeout)
-	if err != nil {
-		return 0, nil, err
 	}
 	m := decodeValues(resultBody, resp.Header.Get("Content-Type"))
 	return resp.StatusCode, m, nil
@@ -325,19 +325,6 @@ func tsvEncode(values []kv) []byte {
 		n++
 	}
 	return buf
-}
-
-func timeoutRead(body io.ReadCloser, timeout time.Duration) ([]byte, error) {
-	t := time.AfterFunc(timeout, func() {
-		body.Close()
-	})
-	buf, err := ioutil.ReadAll(body)
-	if t.Stop() {
-		body.Close()
-	} else {
-		err = ErrTimeout
-	}
-	return buf, err
 }
 
 // decodeValues takes a response from an KT RPC call and turns it into the
@@ -485,17 +472,21 @@ func (c *Conn) doREST(op string, key string, val []byte) (code int, body []byte,
 	}
 	req.ContentLength = int64(len(val))
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(val))
-	t := time.Now()
+	t := time.AfterFunc(c.timeout, func() {
+		c.transport.CancelRequest(req)
+	})
 	resp, err := c.transport.RoundTrip(req)
 	if err != nil {
+		if !t.Stop() {
+			err = ErrTimeout
+		}
 		return 0, nil, err
 	}
-	dur := time.Since(t)
-	timeout := c.timeout - dur
-	if timeout < 0 {
-		return 0, nil, ErrTimeout
+	resultBody, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !t.Stop() {
+		err = ErrTimeout
 	}
-	resultBody, err := timeoutRead(resp.Body, timeout)
 	return resp.StatusCode, resultBody, err
 }
 
