@@ -34,7 +34,7 @@ type Conn struct {
 // to the RPC one when needed.
 
 // NewConn creates a connection to an Kyoto Tycoon endpoint.
-func NewConn(host string, port int, poolsize int, timeout time.Duration) *Conn {
+func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn, error) {
 	portstr := strconv.Itoa(port)
 	c := &Conn{
 		timeout: timeout,
@@ -44,8 +44,11 @@ func NewConn(host string, port int, poolsize int, timeout time.Duration) *Conn {
 			MaxIdleConnsPerHost:   poolsize,
 		},
 	}
-
-	return c
+	_, _, err := c.doRPC("/rpc/void", nil)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 var (
