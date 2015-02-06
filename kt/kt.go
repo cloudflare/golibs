@@ -32,6 +32,11 @@ type Conn struct {
 // the RPC one, but not all methods are implemented.
 // Use the RESTFUL interfaces when we can and fallback
 // to the RPC one when needed.
+//
+// The RPC format uses tab separated values with a choice of encoding
+// for each of the fields. We use base64 since it is always safe.
+//
+// REST format is just the body of the HTTP request being the value.
 
 // NewConn creates a connection to an Kyoto Tycoon endpoint.
 func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn, error) {
@@ -44,6 +49,9 @@ func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn,
 			MaxIdleConnsPerHost:   poolsize,
 		},
 	}
+
+	// connectivity check so that we can bail out
+	// early instead of when we do the first operation.
 	_, _, err := c.doRPC("/rpc/void", nil)
 	if err != nil {
 		return nil, err
@@ -76,7 +84,7 @@ func (c *Conn) Count() (int, error) {
 
 // Remove deletes the data at key in the database.
 func (c *Conn) Remove(key string) error {
-	code, m, err := c.doREST("DELETE", key, nil)
+	code, body, err := c.doREST("DELETE", key, nil)
 	if err != nil {
 		return err
 	}
@@ -84,7 +92,7 @@ func (c *Conn) Remove(key string) error {
 		return ErrNotFound
 	}
 	if code != 204 {
-		return errors.New(string(m))
+		return errors.New(string(body))
 	}
 	return nil
 }
@@ -122,9 +130,9 @@ func (c *Conn) Get(key string) (string, error) {
 }
 
 // GetBytes retrieves the data stored at key in the format of a byte slice
-// A nil slice and nil error is returned if no data at key exists.
+// ErrNotFound is returned if no such data is found.
 func (c *Conn) GetBytes(key string) ([]byte, error) {
-	code, m, err := c.doREST("GET", key, nil)
+	code, body, err := c.doREST("GET", key, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -134,9 +142,9 @@ func (c *Conn) GetBytes(key string) ([]byte, error) {
 	case 404:
 		return nil, ErrNotFound
 	default:
-		return nil, errors.New(string(m))
+		return nil, errors.New(string(body))
 	}
-	return m, nil
+	return body, nil
 
 }
 
@@ -158,6 +166,10 @@ var zeroslice = []byte("0")
 // GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
 func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
+
+	// The format for querying multiple keys in KT is to send a
+	// TSV value for each key with a _ as a prefix.
+	// KT then returns the value as a TSV set with _ in front of the keys
 	keystransmit := make([]kv, 0, len(keys))
 	for k, _ := range keys {
 		// we set the value to nil because we want a sentinel value
@@ -297,6 +309,9 @@ func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) 
 	resp.Body.Close()
 	if !t.Stop() {
 		return 0, nil, ErrTimeout
+	}
+	if err != nil {
+		return 0, nil, err
 	}
 	m := decodeValues(resultBody, resp.Header.Get("Content-Type"))
 	return resp.StatusCode, m, nil
@@ -444,7 +459,7 @@ func unhex(c byte) byte {
 func makeError(m []kv) error {
 	kv := findRec(m, "ERROR")
 	if kv.key == "" {
-		errors.New("kt: generic error")
+		return errors.New("kt: generic error")
 	}
 	return errors.New("kt: " + string(kv.value))
 }
@@ -494,43 +509,9 @@ func (c *Conn) doREST(op string, key string, val []byte) (code int, body []byte,
 }
 
 // encode the key for use in a RESTFUL url
-// KT requires that keys with slashes in them
-// are escaped. For safety, escape everything that is
-// not alphanumeric or _
+// KT requires that we use URL escaped values for
+// anything not safe in a query component.
+// Add a slash for the leading slash in the url.
 func urlenc(s string) string {
-	// scan through one time to see how many
-	// characters we need to escape.
-	var numescapes int
-	for i := 0; i < len(s); i++ {
-		if !isRestSafe(s[i]) {
-			numescapes++
-		}
-	}
-	if numescapes == 0 {
-		return s
-	}
-	b := make([]byte, 0, len(s)+1+2*numescapes)
-	b = append(b, '/')
-	for i := 0; i < len(s); i++ {
-		if !isRestSafe(s[i]) {
-			b = append(b, '%')
-			b = strconv.AppendInt(b, int64(s[i]), 16)
-		} else {
-			b = append(b, s[i])
-		}
-	}
-	return string(b)
-}
-
-func isRestSafe(c uint8) bool {
-	if c >= '0' && c <= '9' {
-		return true
-	} else if c >= 'A' && c <= 'Z' {
-		return true
-	} else if c >= 'a' && c <= 'z' {
-		return true
-	} else if c == '_' {
-		return true
-	}
-	return false
+	return "/" + url.QueryEscape(s)
 }
