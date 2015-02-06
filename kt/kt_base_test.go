@@ -15,7 +15,7 @@ const (
 	KTPORT = 23034
 )
 
-func startServer(t *testing.T) *exec.Cmd {
+func startServer(t testing.TB) *exec.Cmd {
 	port := strconv.Itoa(KTPORT)
 
 	if _, err := net.Dial("tcp", KTHOST+":"+port); err == nil {
@@ -41,7 +41,7 @@ func startServer(t *testing.T) *exec.Cmd {
 	}
 }
 
-func haltServer(cmd *exec.Cmd, t *testing.T) {
+func haltServer(cmd *exec.Cmd, t testing.TB) {
 	if err := cmd.Process.Kill(); err != nil {
 		t.Fatal("failed to halt KT: ", err)
 	}
@@ -51,32 +51,17 @@ func haltServer(cmd *exec.Cmd, t *testing.T) {
 	}
 }
 
-func TestOpenClose(t *testing.T) {
-
-	cmd := startServer(t)
-	defer haltServer(cmd, t)
-
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestCount(t *testing.T) {
 
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
-
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
-	db.Set("name", "Steve Vai")
+	db.Set("name", []byte("Steve Vai"))
 	if n, err := db.Count(); err != nil {
 		t.Error(err)
 	} else if n != 1 {
@@ -89,16 +74,13 @@ func TestGetSet(t *testing.T) {
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
-
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
-
 	keys := []string{"a", "b", "c"}
 	for _, k := range keys {
-		db.Set(k, k)
+		db.Set(k, []byte(k))
 		got, _ := db.Get(k)
 		if got != k {
 			t.Errorf("Get failed: want %s, got %s.", k, got)
@@ -110,10 +92,9 @@ func TestMatchPrefix(t *testing.T) {
 
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
 	keys := []string{
@@ -123,7 +104,7 @@ func TestMatchPrefix(t *testing.T) {
 		"cache/news/4",
 	}
 	for _, k := range keys {
-		db.Set(k, "something")
+		db.Set(k, []byte("something"))
 	}
 	var tests = []struct {
 		max      int64
@@ -176,10 +157,9 @@ func TestGetBulk(t *testing.T) {
 
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
 	testKeys := map[string]string{}
@@ -193,7 +173,7 @@ func TestGetBulk(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(k, v)
+		db.Set(k, []byte(v))
 		testKeys[k] = ""
 	}
 
@@ -234,10 +214,9 @@ func TestSetGetRemoveBulk(t *testing.T) {
 
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
 	testKeys := map[string]string{}
@@ -256,11 +235,11 @@ func TestSetGetRemoveBulk(t *testing.T) {
 		removeKeys = append(removeKeys, k)
 	}
 
-	if _, err = db.SetBulk(baseKeys); err != nil {
+	if _, err := db.SetBulk(baseKeys); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = db.GetBulk(testKeys); err != nil {
+	if err := db.GetBulk(testKeys); err != nil {
 		t.Fatal(err)
 	}
 
@@ -270,7 +249,7 @@ func TestSetGetRemoveBulk(t *testing.T) {
 		}
 	}
 
-	if _, err = db.RemoveBulk(removeKeys); err != nil {
+	if _, err := db.RemoveBulk(removeKeys); err != nil {
 		t.Fatal(err)
 	}
 
@@ -284,10 +263,9 @@ func TestGetBulkBytes(t *testing.T) {
 
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
 	testKeys := map[string][]byte{}
@@ -301,7 +279,7 @@ func TestGetBulkBytes(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(k, string(v))
+		db.Set(k, v)
 		testKeys[k] = []byte("")
 	}
 
@@ -357,10 +335,9 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
 	testKeys := map[string][]byte{}
@@ -374,7 +351,7 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(k, string(v))
+		db.Set(k, v)
 		testKeys[k] = []byte("")
 	}
 
@@ -410,10 +387,9 @@ func TestGetBytes(t *testing.T) {
 
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
-	db, err := Open(KTHOST, KTPORT, DEFAULT_TIMEOUT)
-	defer db.Close()
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal(err.Error())
 	}
 
 	_, err = db.GetBytes("//doesntexist")
