@@ -12,11 +12,11 @@ func TestInvalidBurst(t *testing.T) {
 			t.Fatal("expected panic, got nothing")
 		}
 	}()
-	_ = tokenbucket.New(1, 300, -0.5)
+	_ = tokenbucket.New(1, 300, 0)
 }
 
 func TestBucketDepth(t *testing.T) {
-	b := tokenbucket.New(1, 300, 1)
+	b := tokenbucket.New(1, 300, 300)
 	n := 0
 	// With a bucket the size of the rate
 	// we should expect the rate * 1s to make it through the filter
@@ -40,7 +40,7 @@ func TestBucketDepth(t *testing.T) {
 }
 
 func TestRate(t *testing.T) {
-	b := tokenbucket.New(1, 5000, 0.5)
+	b := tokenbucket.New(1, 5000, 2500)
 	now := time.Now()
 	passed := 0
 	for time.Since(now) < 1*time.Second {
@@ -48,7 +48,6 @@ func TestRate(t *testing.T) {
 			passed += 1
 		}
 	}
-	// rate * 1.5 is the expected value since
 	// we allow the burst at the start of the second,
 	// then settle down into the actual rate.
 	// Fudge term of 10 since we can't be sure that it's

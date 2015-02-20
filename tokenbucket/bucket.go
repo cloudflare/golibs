@@ -7,14 +7,14 @@ import (
 )
 
 type item struct {
-	credit int64
-	prev   int64
+	credit uint64
+	prev   uint64
 }
 
 // Filter implements a token bucket filter.
 type Filter struct {
-	creditMax int64
-	touchCost int64
+	creditMax uint64
+	touchCost uint64
 
 	key0 uint64
 	key1 uint64
@@ -22,15 +22,15 @@ type Filter struct {
 	items []item
 }
 
-// New creates a new token bucket filter with num buckets, accruing tokens at rate per second. The depth of the
-// bucket is rate * 1s * burst.
-func New(num int, rate int64, burst float64) *Filter {
+// New creates a new token bucket filter with num buckets, accruing tokens at rate per second. The depth specifies
+// the depth of the bucket.
+func New(num int, rate float64, depth uint64) *Filter {
 	b := new(Filter)
-	if burst <= 0 {
-		panic("burst factor must be greater than 0")
+	if depth <= 0 {
+		panic("depth of bucket must be greater than 0")
 	}
-	b.touchCost = int64(1*time.Second) / rate
-	b.creditMax = int64(burst * float64(1*time.Second))
+	b.touchCost = uint64((float64(1*time.Second) / rate))
+	b.creditMax = depth * b.touchCost
 	b.items = make([]item, num)
 
 	// Not the full range of a uint64, but we can
@@ -38,17 +38,11 @@ func New(num int, rate int64, burst float64) *Filter {
 	b.key0 = uint64(rand.Int63())
 	b.key1 = uint64(rand.Int63())
 
-	t := time.Now().UnixNano()
-	for i := range b.items {
-		b.items[i].credit = b.creditMax
-		b.items[i].prev = t
-	}
-
 	return b
 }
 
 func (b *Filter) touch(it *item) bool {
-	now := time.Now().UnixNano()
+	now := uint64(time.Now().UnixNano())
 	delta := now - it.prev
 	it.credit += delta
 	it.prev = now
