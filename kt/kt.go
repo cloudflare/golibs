@@ -260,13 +260,14 @@ func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
 	return res, nil
 }
 
-// prefabHeader is the header that rpc request share.
-var prefabHeader = makeprefab()
+var base64headers http.Header
+var identityheaders http.Header
 
-func makeprefab() http.Header {
-	r := make(http.Header)
-	r.Set("Content-Type", "text/tab-separated-values; colenc=B")
-	return r
+func init() {
+	identityheaders = make(http.Header)
+	identityheaders.Set("Content-Type", "text/tab-separated-values")
+	base64headers = make(http.Header)
+	base64headers.Set("Content-Type", "text/tab-separated-values; colenc=B")
 }
 
 // we use an explicit structure here rather than a map[string][]byte
@@ -288,9 +289,12 @@ func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) 
 	req := &http.Request{
 		Method: "POST",
 		URL:    url,
-		Header: prefabHeader,
 	}
-	body := tsvEncode(values)
+	body, enc := tsvEncode(values)
+	req.Header = identityheaders
+	if enc == base64Enc {
+		req.Header = base64headers
+	}
 
 	bodyReader := bytes.NewBuffer(body)
 	req.Body = ioutil.NopCloser(bodyReader)
@@ -317,15 +321,26 @@ func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) 
 	return resp.StatusCode, m, nil
 }
 
-// Encode the request body in base64 encoded TSV
-func tsvEncode(values []kv) []byte {
+type encoding int
+
+const (
+	identityEnc encoding = iota
+	base64Enc
+)
+
+// Encode the request body in TSV. The encoding is chosen based
+// on whether there are any binary data in the key/values
+func tsvEncode(values []kv) ([]byte, encoding) {
 	var bufsize int
+	var hasbinary bool
 	for _, kv := range values {
 		// length of key
+		hasbinary = hasbinary || hasBinary(kv.key)
 		bufsize += base64.StdEncoding.EncodedLen(len(kv.key))
 		// tab
 		bufsize += 1
 		// value
+		hasbinary = hasbinary || hasBinarySlice(kv.value)
 		bufsize += base64.StdEncoding.EncodedLen(len(kv.value))
 		// newline
 		bufsize += 1
@@ -333,16 +348,47 @@ func tsvEncode(values []kv) []byte {
 	buf := make([]byte, bufsize)
 	var n int
 	for _, kv := range values {
-		base64.StdEncoding.Encode(buf[n:], []byte(kv.key))
-		n += base64.StdEncoding.EncodedLen(len(kv.key))
+		if hasbinary {
+			base64.StdEncoding.Encode(buf[n:], []byte(kv.key))
+			n += base64.StdEncoding.EncodedLen(len(kv.key))
+		} else {
+			n += copy(buf[n:], kv.key)
+		}
 		buf[n] = '\t'
 		n++
-		base64.StdEncoding.Encode(buf[n:], kv.value)
-		n += base64.StdEncoding.EncodedLen(len(kv.value))
+		if hasbinary {
+			base64.StdEncoding.Encode(buf[n:], kv.value)
+			n += base64.StdEncoding.EncodedLen(len(kv.value))
+		} else {
+			n += copy(buf[n:], kv.value)
+		}
 		buf[n] = '\n'
 		n++
 	}
-	return buf
+	enc := identityEnc
+	if hasbinary {
+		enc = base64Enc
+	}
+	return buf, enc
+}
+
+func hasBinary(b string) bool {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
+		if c < 0x20 || c > 0x7e {
+			return true
+		}
+	}
+	return false
+}
+
+func hasBinarySlice(b []byte) bool {
+	for _, c := range b {
+		if c < 0x20 || c > 0x7e {
+			return true
+		}
+	}
+	return false
 }
 
 // decodeValues takes a response from an KT RPC call and turns it into the
