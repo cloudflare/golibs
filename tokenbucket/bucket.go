@@ -63,6 +63,6 @@ func (b *Filter) touch(it *item) bool {
 func (b *Filter) Touch(d []byte) bool {
 	n := len(b.items)
 	h := hash(b.key0, b.key1, d)
-	i := int(h) % n
+	i := h % uint64(n)
 	return b.touch(&b.items[i])
 }
