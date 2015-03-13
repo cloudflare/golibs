@@ -75,3 +75,12 @@ func (e *Ewma) Update(next float64, timestamp time.Time) float64 {
 	e.Current = e.count(next, timeDelta)
 	return e.Current
 }
+
+func (e *Ewma) ReadCurrent(next float64, timestamp time.Time) float64 {
+	if e.lastTimestamp.IsZero() {
+		return e.Current
+	}
+
+	timeDelta := timestamp.Sub(e.lastTimestamp)
+	return e.count(next, timeDelta)
+}
