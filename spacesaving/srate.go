@@ -140,26 +140,26 @@ func (ss *SimpleRate) Set(key string, nowTs time.Time, rate float64) {
 	heap.Fix(&ss.heap, bucket.index)
 }
 
-type srateElement struct {
+type SrateElement struct {
 	Key     string
 	LoRate  float64
 	HiRate  float64
 }
 
-type sserSlice []srateElement
+type sserSlice []SrateElement
 
 func (a sserSlice) Len() int           { return len(a) }
 func (a sserSlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a sserSlice) Less(i, j int) bool { return a[i].LoRate < a[j].LoRate }
 
-func (ss *SimpleRate) GetAll(nowTs time.Time) []srateElement {
+func (ss *SimpleRate) GetAll(nowTs time.Time) []SrateElement {
 	now := nowTs.UnixNano()
 
-	elements := make([]srateElement, 0, len(ss.heap))
+	elements := make([]SrateElement, 0, len(ss.heap))
 	for _, b := range ss.heap {
 		rate := ss.recount(b.countRate, b.countTs, now)
 		errRate := ss.recount(b.errorRate, b.errorTs, now)
-		elements = append(elements, srateElement{
+		elements = append(elements, SrateElement{
 			Key:     b.key,
 			LoRate:  rate - errRate,
 			HiRate:  rate,
