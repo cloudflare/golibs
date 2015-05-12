@@ -5,8 +5,8 @@ package spacesaving
 import (
 	"container/heap"
 	"math"
-	"time"
 	"sort"
+	"time"
 )
 
 type srateBucket struct {
@@ -107,9 +107,7 @@ func (ss *SimpleRate) findBucket(key string) (*srateBucket, string) {
 }
 
 func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
-	var (
-		now      = nowTs.UnixNano()
-	)
+	now := nowTs.UnixNano()
 	bucket, _ := ss.findBucket(key)
 
 	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now, 1)
@@ -117,10 +115,8 @@ func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 	heap.Fix(&ss.heap, bucket.index)
 }
 
-func (ss *SimpleRate) TouchWeight(key string, nowTs time.Time, userWeight float64) (string) {
-	var (
-		now      = nowTs.UnixNano()
-	)
+func (ss *SimpleRate) TouchWeight(key string, nowTs time.Time, userWeight float64) string {
+	now := nowTs.UnixNano()
 	bucket, evicted := ss.findBucket(key)
 
 	bucket.countRate = ss.count(bucket.countRate, bucket.countTs, now, userWeight)
@@ -131,7 +127,7 @@ func (ss *SimpleRate) TouchWeight(key string, nowTs time.Time, userWeight float6
 
 func (ss *SimpleRate) Set(key string, nowTs time.Time, rate float64) {
 	var (
-		now      = nowTs.UnixNano()
+		now = nowTs.UnixNano()
 	)
 	bucket, _ := ss.findBucket(key)
 
@@ -141,9 +137,9 @@ func (ss *SimpleRate) Set(key string, nowTs time.Time, rate float64) {
 }
 
 type SrateElement struct {
-	Key     string
-	LoRate  float64
-	HiRate  float64
+	Key    string
+	LoRate float64
+	HiRate float64
 }
 
 type sserSlice []SrateElement
@@ -160,9 +156,9 @@ func (ss *SimpleRate) GetAll(nowTs time.Time) []SrateElement {
 		rate := ss.recount(b.countRate, b.countTs, now)
 		errRate := ss.recount(b.errorRate, b.errorTs, now)
 		elements = append(elements, SrateElement{
-			Key:     b.key,
-			LoRate:  rate - errRate,
-			HiRate:  rate,
+			Key:    b.key,
+			LoRate: rate - errRate,
+			HiRate: rate,
 		})
 	}
 	sort.Sort(sort.Reverse(sserSlice(elements)))
@@ -185,4 +181,3 @@ func (ss *SimpleRate) GetSingle(key string, nowTs time.Time) (float64, float64) 
 		return 0, 0
 	}
 }
-

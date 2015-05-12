@@ -94,7 +94,7 @@ type Rate struct {
 //
 // Size stands for number of items to track in the stream. HalfLife determines
 // the time required half-charge or half-discharge a rate counter.
-func (ss *Rate) Init(size uint32, halfLife time.Duration) *Rate {
+func (ss *Rate) Init(size int, halfLife time.Duration) *Rate {
 	*ss = Rate{
 		keytobucketno: make(map[string]uint32, size),
 		buckets:       make([]bucket, size),
@@ -111,14 +111,11 @@ func (ss *Rate) Init(size uint32, halfLife time.Duration) *Rate {
 	return ss
 }
 
-// Mark an event happening, using given timestamp.
-//
-// The implementation assumes time is monotonic, the behaviour is undefined in
-// the case of time going back. This operation has logarithmic complexity.
-func (ss *Rate) Touch(key string, nowTs time.Time) {
-	now := nowTs.UnixNano()
-
-	var bucket *bucket
+func (ss *Rate) findBucket(key string) (*bucket, string) {
+	var (
+		bucket  *bucket
+		evicted string
+	)
 	if bucketno, found := ss.keytobucketno[key]; found {
 		bucket = &ss.buckets[bucketno]
 	} else {
@@ -128,12 +125,25 @@ func (ss *Rate) Touch(key string, nowTs time.Time) {
 		delete(ss.keytobucketno, bucket.key)
 		ss.keytobucketno[key] = bucketno
 
+		evicted = bucket.key
+
 		bucket.key, bucket.errLastTs, bucket.errRate =
 			key, bucket.lastTs, bucket.rate
 	}
 
+	return bucket, evicted
+}
+
+// Mark an event happening, using given timestamp.
+//
+// The implementation assumes time is monotonic, the behaviour is undefined in
+// the case of time going back. This operation has logarithmic complexity.
+func (ss *Rate) Touch(key string, nowTs time.Time) {
+	now := nowTs.UnixNano()
+	bucket, _ := ss.findBucket(key)
+
 	if bucket.lastTs != 0 {
-		bucket.rate = ss.count(bucket.rate, bucket.lastTs, now)
+		bucket.rate = ss.count(bucket.rate, bucket.lastTs, now, 1)
 	}
 	bucket.lastTs = now
 
@@ -141,12 +151,26 @@ func (ss *Rate) Touch(key string, nowTs time.Time) {
 	heap.Fix(&ss.sh, int(bucket.idx))
 }
 
-func (ss *Rate) count(rate float64, lastTs, now int64) float64 {
+func (ss *Rate) TouchWeight(key string, nowTs time.Time, userWeight float64) string {
+	now := nowTs.UnixNano()
+	bucket, evicted := ss.findBucket(key)
+
+	if bucket.lastTs != 0 {
+		bucket.rate = ss.count(bucket.rate, bucket.lastTs, now, userWeight)
+	}
+	bucket.lastTs = now
+
+	// Even lastTs change may change ordering.
+	heap.Fix(&ss.sh, int(bucket.idx))
+	return evicted
+}
+
+func (ss *Rate) count(rate float64, lastTs, now int64, userWeight float64) float64 {
 	deltaNs := float64(now - lastTs)
 	weight := math.Exp(deltaNs * ss.weightHelper)
 
 	if deltaNs != 0 {
-		return rate*weight + (1000000000./deltaNs)*(1-weight)
+		return rate*weight + (1000000000./deltaNs)*userWeight*(1-weight)
 	}
 	return rate * weight
 }
