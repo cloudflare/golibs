@@ -243,8 +243,8 @@ func TestExtra(t *testing.T) {
 	}
 
 	now := time.Now()
-	b.Set("b", "vb", now)
-	b.Set("a", "va", now)
+	b.Set("b", "vb", now.Add(time.Duration(-2*time.Second)))
+	b.Set("a", "va", now.Add(time.Duration(-1*time.Second)))
 	b.Set("c", "vc", now.Add(time.Duration(3*time.Second)))
 
 	if v, _ := b.Get("a"); v != "va" {
