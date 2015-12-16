@@ -29,6 +29,12 @@ func NewMultiLRUCache(buckets, bucket_capacity uint) *MultiLRUCache {
 	return m
 }
 
+func (m *MultiLRUCache) SetCacheLogger(cacheLogger CacheLogger) {
+	for _, cache := range m.cache {
+		cache.SetCacheLogger(cacheLogger)
+	}
+}
+
 func (m *MultiLRUCache) bucketNo(key string) uint {
 	// Arbitrary choice. Any fast hash will do.
 	return uint(crc32.ChecksumIEEE([]byte(key))) % m.buckets

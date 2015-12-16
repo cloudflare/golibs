@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+// CacheLogger is an interface that receives log events from an LRUCache.
+type CacheLogger interface {
+	// LogInsert is called when a key is inserted into the cache.
+	LogInsert(key string, expiry time.Time, now time.Time)
+	// LogEviction is called when a cached key is removed to make room for another key.
+	LogEviction(key string, expiry time.Time, now time.Time)
+	// LogLookup is called on every successful or failed cache lookup.
+	// now will be zero if stale entries were accepted.
+	LogLookup(key string, hit bool, now time.Time)
+}
+
 // Every element in the cache is linked to three data structures:
 // Table map, PriorityQueue heap ordered by expiry and a LruList list
 // ordered by decreasing popularity.
@@ -27,6 +38,7 @@ type LRUCache struct {
 	priorityQueue priorityQueue     // some elements from table may be in priorityQueue
 	lruList       list              // every entry is either used and resides in lruList
 	freeList      list              // or free and is linked to freeList
+	cacheLogger   CacheLogger
 }
 
 // Initialize the LRU cache instance. O(capacity)
@@ -52,6 +64,12 @@ func NewLRUCache(capacity uint) *LRUCache {
 	b := &LRUCache{}
 	b.Init(capacity)
 	return b
+}
+
+// SetCacheLogger makes the LRUCache log certain events with an instance
+// of something that implements the CacheLogger interface.
+func (b *LRUCache) SetCacheLogger(cacheLogger CacheLogger) {
+	b.cacheLogger = cacheLogger
 }
 
 // Give me the entry with lowest expiry field if it's before now.
@@ -90,7 +108,11 @@ func (b *LRUCache) freeSomeEntry(now time.Time) (e *entry, used bool) {
 		return nil, false
 	}
 
-	return b.leastUsedEntry(), true
+	e = b.leastUsedEntry()
+	if b.cacheLogger != nil {
+		b.cacheLogger.LogEviction(e.key, e.expire, now)
+	}
+	return e, true
 }
 
 // Move entry from used/lru list to a free list. Clear the entry as well.
@@ -126,6 +148,12 @@ func (b *LRUCache) touchEntry(e *entry) {
 	b.lruList.MoveToFront(&e.element)
 }
 
+func (b *LRUCache) logLookup(key string, hit bool, now time.Time) {
+	if b.cacheLogger != nil {
+		b.cacheLogger.LogLookup(key, hit, now)
+	}
+}
+
 // Add an item to the cache overwriting existing one if it
 // exists. Allows specifing current time required to expire an item
 // when no more slots are used. O(log(n)) if expiry is set, O(1) when
@@ -135,6 +163,10 @@ func (b *LRUCache) SetNow(key string, value interface{}, expire time.Time, now t
 	defer b.lock.Unlock()
 
 	var used bool
+
+	if b.cacheLogger != nil {
+		b.cacheLogger.LogInsert(key, expire, now)
+	}
 
 	e := b.table[key]
 	if e != nil {
@@ -167,6 +199,7 @@ func (b *LRUCache) Get(key string) (v interface{}, ok bool) {
 	defer b.lock.Unlock()
 
 	e := b.table[key]
+	b.logLookup(key, e != nil, time.Time{})
 	if e == nil {
 		return nil, false
 	}
@@ -181,6 +214,7 @@ func (b *LRUCache) GetQuiet(key string) (v interface{}, ok bool) {
 	defer b.lock.Unlock()
 
 	e := b.table[key]
+	b.logLookup(key, e != nil, time.Time{})
 	if e == nil {
 		return nil, false
 	}
@@ -202,15 +236,18 @@ func (b *LRUCache) GetNotStaleNow(key string, now time.Time) (value interface{},
 
 	e := b.table[key]
 	if e == nil {
+		b.logLookup(key, false, now)
 		return nil, false
 	}
 
 	if e.expire.Before(now) {
 		b.removeEntry(e)
+		b.logLookup(key, false, now)
 		return nil, false
 	}
 
 	b.touchEntry(e)
+	b.logLookup(key, true, now)
 	return e.value, true
 }
 
@@ -227,6 +264,7 @@ func (b *LRUCache) GetStaleNow(key string, now time.Time) (value interface{}, ok
 	defer b.lock.Unlock()
 
 	e := b.table[key]
+	b.logLookup(key, e != nil, now)
 	if e == nil {
 		return nil, false, false
 	}
