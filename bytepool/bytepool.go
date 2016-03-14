@@ -23,10 +23,15 @@ type BytePool struct {
 // drainPeriod is non zero. MaxSize specifies the maximum length of a
 // byte slice that should be cached (rounded to the next power of 2).
 func (tp *BytePool) Init(drainPeriod time.Duration, maxSize uint32) {
+	if maxSize > math.MaxUint32 {
+		maxSize = math.MaxUint32
+	}
 	maxSizeLog := log2Ceil(maxSize)
 	tp.maxSize = (1 << maxSizeLog) - 1
-	if tp.maxSize > math.MaxUint32 {
-		tp.maxSize = math.MaxUint32
+	// 32-bit catch
+	if tp.maxSize <= 0 {
+		tp.maxSize = math.MaxInt32
+		maxSizeLog = log2Ceil(math.MaxInt32)
 	}
 	tp.list_of_pools = make([]pool, maxSizeLog+1)
 	if drainPeriod > 0 {
