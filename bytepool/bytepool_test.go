@@ -90,7 +90,8 @@ func TestDrain(t *testing.T) {
 func TestLimits(t *testing.T) {
 	t.Parallel()
 
-	var p BytePool
+	var ti	int
+	var p 	BytePool
 	p.Init(0, 127)
 
 	p.Put(make([]byte, 129))
@@ -119,6 +120,24 @@ func TestLimits(t *testing.T) {
 	p.Put(make([]byte, 129))
 	if p.entries() != 1 {
 		t.Fatal("expected different pool length")
+	}
+
+	p.Put(make([]byte, math.MaxUint32 + 1))
+	if p.entries() != 1 {
+		t.Fatal("expected the pool to have a single item")
+	}
+
+	p.Put(make([]byte, math.MaxInt32 + 1))
+	ti = (1 << log2Ceil(math.MaxUint32)) - 1
+	if ti <= 0 {
+		// 32-bit systems: Put() slice-size math.MaxInt32 + 1 fails
+		if p.entries() != 1 {
+			t.Fatal("expected the pool to have a single item")
+		}
+	} else {
+		if p.entries() != 2 {
+			t.Fatal("expected the pool to have two items")
+		}
 	}
 
 	p.Drain()
