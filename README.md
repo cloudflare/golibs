@@ -8,3 +8,4 @@ Simple `golang` libraries used internally at CloudFlare:
  - `pool`: backported version of `sync.Pool`
  - `bytepool`: a pool of byte slices
  - `ewma`: exponentially decaying moving average
+ - `kt`: client library for Kyoto Tycoon REST API
