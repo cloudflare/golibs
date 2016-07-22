@@ -210,6 +210,63 @@ func TestGetBulk(t *testing.T) {
 	}
 }
 
+func TestGetBulkAtomic(t *testing.T) {
+
+	cmd := startServer(t)
+	defer haltServer(cmd, t)
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	testKeys := map[string]string{}
+	baseKeys := map[string]string{
+		"cache/news/1": "1",
+		"cache/news/2": "2",
+		"cache/news/3": "3",
+		"cache/news/4": "4",
+		"cache/news/5": "5",
+		"cache/news/6": "6",
+	}
+
+	for k, v := range baseKeys {
+		db.Set(k, []byte(v))
+		testKeys[k] = ""
+	}
+
+	err = db.GetBulkAtomic(testKeys, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulkAtomic(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+
+	// Now remove some keys
+	db.Remove("cache/news/1")
+	db.Remove("cache/news/2")
+	delete(baseKeys, "cache/news/1")
+	delete(baseKeys, "cache/news/2")
+
+	err = db.GetBulkAtomic(testKeys, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulkAtomic(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+
+	if _, ok := testKeys["cache/news/1"]; ok {
+		t.Errorf("db.GetBulkAtomic(). Returned deleted key %v.", "cache/news/1")
+	}
+}
+
 func TestSetGetRemoveBulk(t *testing.T) {
 
 	cmd := startServer(t)
@@ -256,6 +313,55 @@ func TestSetGetRemoveBulk(t *testing.T) {
 	count, _ := db.Count()
 	if count != 0 {
 		t.Errorf("db.RemoveBulk(). Want %v. Got %v", 0, count)
+	}
+}
+
+func TestSetGetRemoveBulkAtomic(t *testing.T) {
+
+	cmd := startServer(t)
+	defer haltServer(cmd, t)
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	testKeys := map[string]string{}
+	baseKeys := map[string]string{
+		"cache/news/1": "1",
+		"cache/news/2": "2",
+		"cache/news/3": "3",
+		"cache/news/4": "4",
+		"cache/news/5": "5",
+		"cache/news/6": "6",
+	}
+	removeKeys := make([]string, len(baseKeys))
+
+	for k, _ := range baseKeys {
+		testKeys[k] = ""
+		removeKeys = append(removeKeys, k)
+	}
+
+	if _, err := db.SetBulkAtomic(baseKeys, true); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.GetBulkAtomic(testKeys, true); err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulkAtomic(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+
+	if _, err := db.RemoveBulkAtomic(removeKeys, true); err != nil {
+		t.Fatal(err)
+	}
+
+	count, _ := db.Count()
+	if count != 0 {
+		t.Errorf("db.RemoveBulkAtomic(). Want %v. Got %v", 0, count)
 	}
 }
 
@@ -311,6 +417,78 @@ func TestGetBulkBytes(t *testing.T) {
 
 	if _, ok := testKeys["cache/news/4"]; ok {
 		t.Errorf("db.GetBulkBytes(). Returned deleted key %v.", "cache/news/4")
+	}
+
+	noKeys := map[string][]byte{
+		"XXXcache/news/1": []byte(""),
+		"XXXcache/news/2": []byte(""),
+		"XXXcache/news/3": []byte(""),
+		"XXXcache/news/4": []byte(""),
+		"XXXcache/news/5": []byte(""),
+		"XXXcache/news/6": []byte(""),
+	}
+	err = db.GetBulkBytes(noKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(noKeys) != 0 {
+		t.Errorf("db.GetBulkBinary. Want 0, got ", len(noKeys))
+	}
+}
+
+func TestGetBulkBytesAtomic(t *testing.T) {
+
+	cmd := startServer(t)
+	defer haltServer(cmd, t)
+	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	testKeys := map[string][]byte{}
+	baseKeys := map[string][]byte{
+		"cache/news/1": []byte("1"),
+		"cache/news/2": []byte("2"),
+		"cache/news/3": []byte("3"),
+		"cache/news/4": []byte("4"),
+		"cache/news/5": []byte("5"),
+		"cache/news/6": []byte("6"),
+	}
+
+	for k, v := range baseKeys {
+		db.Set(k, v)
+		testKeys[k] = []byte("")
+	}
+
+	err = db.GetBulkBytesAtomic(testKeys, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulk(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+
+	// Now remove some keys
+	db.Remove("cache/news/4")
+	delete(baseKeys, "cache/news/4")
+
+	err = db.GetBulkBytesAtomic(testKeys, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range baseKeys {
+		if !reflect.DeepEqual(v, testKeys[k]) {
+			t.Errorf("db.GetBulkBytesAtomic(). Want %v. Got %v. for key %s", v, testKeys[k], k)
+		}
+	}
+
+	if _, ok := testKeys["cache/news/4"]; ok {
+		t.Errorf("db.GetBulkBytesAtomic(). Returned deleted key %v.", "cache/news/4")
 	}
 
 	noKeys := map[string][]byte{

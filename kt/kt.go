@@ -48,7 +48,7 @@ func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn,
 
 	// connectivity check so that we can bail out
 	// early instead of when we do the first operation.
-	_, _, err := c.doRPC("/rpc/void", nil)
+	_, _, err := c.doRPC("/rpc/void", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ var (
 
 // Count returns the number of records in the database
 func (c *Conn) Count() (int, error) {
-	code, m, err := c.doRPC("/rpc/status", nil)
+	code, m, err := c.doRPC("/rpc/status", "", nil)
 	if err != nil {
 		return 0, err
 	}
@@ -95,12 +95,20 @@ func (c *Conn) Remove(key string) error {
 
 // GetBulk retrieves the keys in the map. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
+// Note that this is NOT atomic. If you want to make an atomic call, use the
+// GetBulkAtomic API.
 func (c *Conn) GetBulk(keysAndVals map[string]string) error {
+	return c.GetBulkAtomic(keysAndVals, false)
+}
+
+// GetBulk retrieves the keys in the map. The results will be filled in on function return.
+// If a key was not found in the database, it will be removed from the map.
+func (c *Conn) GetBulkAtomic(keysAndVals map[string]string, atomic bool) error {
 	m := make(map[string][]byte)
 	for k := range keysAndVals {
 		m[k] = zeroslice
 	}
-	err := c.GetBulkBytes(m)
+	err := c.GetBulkBytesAtomic(m, atomic)
 	if err != nil {
 		return err
 	}
@@ -161,7 +169,15 @@ var zeroslice = []byte("0")
 
 // GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
+// Note that this is NOT atomic. If you want to make an atomic call, use the
+// GetBulkBytesAtomic API.
 func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
+	return c.GetBulkBytesAtomic(keys, false)
+}
+
+// GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
+// If a key was not found in the database, it will be removed from the map.
+func (c *Conn) GetBulkBytesAtomic(keys map[string][]byte, atomic bool) error {
 
 	// The format for querying multiple keys in KT is to send a
 	// TSV value for each key with a _ as a prefix.
@@ -174,7 +190,13 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 		keys[k] = nil
 		keystransmit = append(keystransmit, kv{"_" + k, zeroslice})
 	}
-	code, m, err := c.doRPC("/rpc/get_bulk", keystransmit)
+
+	var query string
+	if atomic {
+		query = "atomic=true"
+	}
+
+	code, m, err := c.doRPC("/rpc/get_bulk", query, keystransmit)
 	if err != nil {
 		return err
 	}
@@ -195,13 +217,27 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 	return nil
 }
 
-// SetBulk stores the values in the map.
+// SetBulk stores the values in the map
+// Note that this is NOT atomic. If you want to make an atomic call, use the
+// SetBulkAtomic API.
 func (c *Conn) SetBulk(values map[string]string) (int64, error) {
+	return c.SetBulkAtomic(values, false)
+}
+
+// SetBulk stores the values in the map, either atomically, or not.
+func (c *Conn) SetBulkAtomic(values map[string]string, atomic bool) (int64, error) {
 	vals := make([]kv, 0, len(values))
 	for k, v := range values {
 		vals = append(vals, kv{"_" + k, []byte(v)})
+
 	}
-	code, m, err := c.doRPC("/rpc/set_bulk", vals)
+
+	var query string
+	if atomic {
+		query = "atomic=true"
+	}
+
+	code, m, err := c.doRPC("/rpc/set_bulk", query, vals)
 	if err != nil {
 		return 0, err
 	}
@@ -212,12 +248,25 @@ func (c *Conn) SetBulk(values map[string]string) (int64, error) {
 }
 
 // RemoveBulk deletes the values
+// Note that this is NOT atomic. If you want to make an atomic call, use the
+// RemoveBulkAtomic API.
 func (c *Conn) RemoveBulk(keys []string) (int64, error) {
+	return c.RemoveBulkAtomic(keys, false)
+}
+
+// RemoveBulk deletes the values, either atomically, or not.
+func (c *Conn) RemoveBulkAtomic(keys []string, atomic bool) (int64, error) {
 	vals := make([]kv, 0, len(keys))
 	for _, k := range keys {
 		vals = append(vals, kv{"_" + k, zeroslice})
 	}
-	code, m, err := c.doRPC("/rpc/remove_bulk", vals)
+
+	var query string
+	if atomic {
+		query = "atomic=true"
+	}
+
+	code, m, err := c.doRPC("/rpc/remove_bulk", query, vals)
 	if err != nil {
 		return 0, err
 	}
@@ -236,7 +285,7 @@ func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
 		{"prefix", []byte(key)},
 		{"max", []byte(strconv.FormatInt(maxrecords, 10))},
 	}
-	code, m, err := c.doRPC("/rpc/match_prefix", keystransmit)
+	code, m, err := c.doRPC("/rpc/match_prefix", "", keystransmit)
 	if err != nil {
 		return nil, err
 	}
@@ -276,11 +325,12 @@ type kv struct {
 }
 
 // Do an RPC call against the KT endpoint.
-func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) {
+func (c *Conn) doRPC(path, query string, values []kv) (code int, vals []kv, err error) {
 	url := &url.URL{
-		Scheme: "http",
-		Host:   c.host,
-		Path:   path,
+		Scheme:   "http",
+		Host:     c.host,
+		Path:     path,
+		RawQuery: query,
 	}
 	req := &http.Request{
 		Method: "POST",
