@@ -101,7 +101,7 @@ func (c *Conn) GetBulk(keysAndVals map[string]string) error {
 	return c.GetBulkAtomic(keysAndVals, false)
 }
 
-// GetBulk retrieves the keys in the map. The results will be filled in on function return.
+// GetBulkAtomic retrieves the keys in the map. Atomically. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
 func (c *Conn) GetBulkAtomic(keysAndVals map[string]string, atomic bool) error {
 	m := make(map[string][]byte)
@@ -175,7 +175,7 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 	return c.GetBulkBytesAtomic(keys, false)
 }
 
-// GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
+// GetBulkBytesAtomic retrieves the keys in the map. Atomically. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
 func (c *Conn) GetBulkBytesAtomic(keys map[string][]byte, atomic bool) error {
 
@@ -224,7 +224,7 @@ func (c *Conn) SetBulk(values map[string]string) (int64, error) {
 	return c.SetBulkAtomic(values, false)
 }
 
-// SetBulk stores the values in the map, either atomically, or not.
+// SetBulkAtomic stores the values in the map, either atomically, or not. Atomically.
 func (c *Conn) SetBulkAtomic(values map[string]string, atomic bool) (int64, error) {
 	vals := make([]kv, 0, len(values))
 	for k, v := range values {
@@ -254,7 +254,7 @@ func (c *Conn) RemoveBulk(keys []string) (int64, error) {
 	return c.RemoveBulkAtomic(keys, false)
 }
 
-// RemoveBulk deletes the values, either atomically, or not.
+// RemoveBulkAtomic deletes the values, either atomically, or not. Atomically.
 func (c *Conn) RemoveBulkAtomic(keys []string, atomic bool) (int64, error) {
 	vals := make([]kv, 0, len(keys))
 	for _, k := range keys {
