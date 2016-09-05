@@ -9,9 +9,8 @@ import (
 // TrackedConn is a wrapper around kt.Conn that will accept a prometheus counter
 // vector, and keep track of number of IO operations made to KT.
 type TrackedConn struct {
-	kt        *Conn
-	opCounter *prometheus.CounterVec
-	opTimer   *prometheus.SummaryVec
+	kt      *Conn
+	opTimer *prometheus.SummaryVec
 }
 
 const (
@@ -29,25 +28,21 @@ const (
 
 // NewTrackedConn creates a new connection to a Kyoto Tycoon endpoint, and tracks
 // operations made to it using prometheus metrics.
-// All supported operations are tracked, opCounter is used to track the number of
-// times each operation occurs, and opTimer times the number of nanoseconds each type
-// of operation took, generating a summary.
+// All supported operations are tracked, opTimer times the number of nanoseconds
+// each type of operation took, generating a summary.
 func NewTrackedConn(host string, port int, poolsize int, timeout time.Duration,
-	opCounter *prometheus.CounterVec, opTimer *prometheus.SummaryVec) (*TrackedConn, error) {
+	opTimer *prometheus.SummaryVec) (*TrackedConn, error) {
 	conn, err := NewConn(host, port, poolsize, timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	return &TrackedConn{
-		kt:        conn,
-		opCounter: opCounter,
-		opTimer:   opTimer}, nil
+		kt:      conn,
+		opTimer: opTimer}, nil
 }
 
 func (c *TrackedConn) Count() (int, error) {
-	c.opCounter.WithLabelValues(opGet).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -58,8 +53,6 @@ func (c *TrackedConn) Count() (int, error) {
 }
 
 func (c *TrackedConn) Remove(key string) error {
-	c.opCounter.WithLabelValues(opRemove).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -70,8 +63,6 @@ func (c *TrackedConn) Remove(key string) error {
 }
 
 func (c *TrackedConn) GetBulk(keysAndVals map[string]string) error {
-	c.opCounter.WithLabelValues(opGetBulk).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -82,8 +73,6 @@ func (c *TrackedConn) GetBulk(keysAndVals map[string]string) error {
 }
 
 func (c *TrackedConn) Get(key string) (string, error) {
-	c.opCounter.WithLabelValues(opGet).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -94,8 +83,6 @@ func (c *TrackedConn) Get(key string) (string, error) {
 }
 
 func (c *TrackedConn) GetBytes(key string) ([]byte, error) {
-	c.opCounter.WithLabelValues(opGetBytes).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -106,8 +93,6 @@ func (c *TrackedConn) GetBytes(key string) ([]byte, error) {
 }
 
 func (c *TrackedConn) Set(key string, value []byte) error {
-	c.opCounter.WithLabelValues(opSet).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -118,8 +103,6 @@ func (c *TrackedConn) Set(key string, value []byte) error {
 }
 
 func (c *TrackedConn) GetBulkBytes(keys map[string][]byte) error {
-	c.opCounter.WithLabelValues(opGetBulkBytes).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -130,8 +113,6 @@ func (c *TrackedConn) GetBulkBytes(keys map[string][]byte) error {
 }
 
 func (c *TrackedConn) SetBulk(values map[string]string) (int64, error) {
-	c.opCounter.WithLabelValues(opSetBulk).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -142,8 +123,6 @@ func (c *TrackedConn) SetBulk(values map[string]string) (int64, error) {
 }
 
 func (c *TrackedConn) RemoveBulk(keys []string) (int64, error) {
-	c.opCounter.WithLabelValues(opRemoveBulk).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
@@ -154,8 +133,6 @@ func (c *TrackedConn) RemoveBulk(keys []string) (int64, error) {
 }
 
 func (c *TrackedConn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
-	c.opCounter.WithLabelValues(opMatchPrefix).Inc()
-
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
