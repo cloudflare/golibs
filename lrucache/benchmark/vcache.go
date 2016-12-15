@@ -3,7 +3,7 @@
 package main
 
 import (
-	vcache "code.google.com/p/vitess/go/cache"
+	vcache "github.com/youtube/vitess/go/cache"
 )
 
 type VCache struct {
@@ -12,7 +12,7 @@ type VCache struct {
 
 func NewVCache(capacity uint64) *VCache {
 	return &VCache{
-		LRUCache: *vcache.NewLRUCache(capacity),
+		LRUCache: *vcache.NewLRUCache(int64(capacity)),
 	}
 }
 
