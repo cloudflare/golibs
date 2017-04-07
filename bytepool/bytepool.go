@@ -16,7 +16,7 @@ type pool struct {
 type BytePool struct {
 	list_of_pools []pool
 	drainTicker   *time.Ticker
-	maxSize       int
+	maxSize       int64
 }
 
 // Initialize BytePool structure. Starts draining regularly if
@@ -43,7 +43,7 @@ func (tp *BytePool) Init(drainPeriod time.Duration, maxSize uint32) {
 
 // Put the byte slice back in pool.
 func (tp *BytePool) Put(el []byte) {
-	if cap(el) < 1 || cap(el) > tp.maxSize {
+	if cap(el) < 1 || int64(cap(el)) > tp.maxSize {
 		return
 	}
 	el = el[:cap(el)]
@@ -55,7 +55,7 @@ func (tp *BytePool) Put(el []byte) {
 }
 
 // Get a byte slice from the pool.
-func (tp *BytePool) Get(size int) []byte {
+func (tp *BytePool) Get(size int64) []byte {
 	if size < 1 || size > tp.maxSize {
 		return make([]byte, size)
 	}
