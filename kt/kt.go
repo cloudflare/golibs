@@ -75,7 +75,7 @@ func (c *Conn) Count() (int, error) {
 	if code != 200 {
 		return 0, makeError(m)
 	}
-	return strconv.Atoi(string(findRec(m, "count").value))
+	return strconv.Atoi(string(findRec(m, "count").Value))
 }
 
 // Remove deletes the data at key in the database.
@@ -166,13 +166,13 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 	// The format for querying multiple keys in KT is to send a
 	// TSV value for each key with a _ as a prefix.
 	// KT then returns the value as a TSV set with _ in front of the keys
-	keystransmit := make([]kv, 0, len(keys))
+	keystransmit := make([]KV, 0, len(keys))
 	for k, _ := range keys {
 		// we set the value to nil because we want a sentinel value
 		// for when no data was found. This is important for
 		// when we remove the not found keys from the map
 		keys[k] = nil
-		keystransmit = append(keystransmit, kv{"_" + k, zeroslice})
+		keystransmit = append(keystransmit, KV{"_" + k, zeroslice})
 	}
 	code, m, err := c.doRPC("/rpc/get_bulk", keystransmit)
 	if err != nil {
@@ -182,10 +182,10 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 		return makeError(m)
 	}
 	for _, kv := range m {
-		if kv.key[0] != '_' {
+		if kv.Key[0] != '_' {
 			continue
 		}
-		keys[kv.key[1:]] = kv.value
+		keys[kv.Key[1:]] = kv.Value
 	}
 	for k, v := range keys {
 		if v == nil {
@@ -197,9 +197,9 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 
 // SetBulk stores the values in the map.
 func (c *Conn) SetBulk(values map[string]string) (int64, error) {
-	vals := make([]kv, 0, len(values))
+	vals := make([]KV, 0, len(values))
 	for k, v := range values {
-		vals = append(vals, kv{"_" + k, []byte(v)})
+		vals = append(vals, KV{"_" + k, []byte(v)})
 	}
 	code, m, err := c.doRPC("/rpc/set_bulk", vals)
 	if err != nil {
@@ -208,14 +208,14 @@ func (c *Conn) SetBulk(values map[string]string) (int64, error) {
 	if code != 200 {
 		return 0, makeError(m)
 	}
-	return strconv.ParseInt(string(findRec(m, "num").value), 10, 64)
+	return strconv.ParseInt(string(findRec(m, "num").Value), 10, 64)
 }
 
 // RemoveBulk deletes the values
 func (c *Conn) RemoveBulk(keys []string) (int64, error) {
-	vals := make([]kv, 0, len(keys))
+	vals := make([]KV, 0, len(keys))
 	for _, k := range keys {
-		vals = append(vals, kv{"_" + k, zeroslice})
+		vals = append(vals, KV{"_" + k, zeroslice})
 	}
 	code, m, err := c.doRPC("/rpc/remove_bulk", vals)
 	if err != nil {
@@ -224,7 +224,7 @@ func (c *Conn) RemoveBulk(keys []string) (int64, error) {
 	if code != 200 {
 		return 0, makeError(m)
 	}
-	return strconv.ParseInt(string(findRec(m, "num").value), 10, 64)
+	return strconv.ParseInt(string(findRec(m, "num").Value), 10, 64)
 }
 
 // MatchPrefix performs the match_prefix operation against the server
@@ -232,7 +232,7 @@ func (c *Conn) RemoveBulk(keys []string) (int64, error) {
 // The error may be ErrSuccess in the case that no records were found.
 // This is for compatibility with the old gokabinet library.
 func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
-	keystransmit := []kv{
+	keystransmit := []KV{
 		{"prefix", []byte(key)},
 		{"max", []byte(strconv.FormatInt(maxrecords, 10))},
 	}
@@ -245,8 +245,8 @@ func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
 	}
 	res := make([]string, 0, len(m))
 	for _, kv := range m {
-		if kv.key[0] == '_' {
-			res = append(res, string(kv.key[1:]))
+		if kv.Key[0] == '_' {
+			res = append(res, string(kv.Key[1:]))
 		}
 	}
 	if len(res) == 0 {
@@ -266,17 +266,15 @@ func init() {
 	base64headers.Set("Content-Type", "text/tab-separated-values; colenc=B")
 }
 
-// we use an explicit structure here rather than a map[string][]byte
-// because for some operations, we care about the order
-// and since we only care about direct key lookup in a few
-// cases where the sets are small, we can amortize the cost of the map
-type kv struct {
-	key   string
-	value []byte
+// KV uses an explicit structure here rather than a map[string][]byte
+// because we need ordered data.
+type KV struct {
+	Key   string
+	Value []byte
 }
 
 // Do an RPC call against the KT endpoint.
-func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) {
+func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) {
 	url := &url.URL{
 		Scheme: "http",
 		Host:   c.host,
@@ -286,9 +284,9 @@ func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) 
 		Method: "POST",
 		URL:    url,
 	}
-	body, enc := tsvEncode(values)
+	body, enc := TSVEncode(values)
 	req.Header = identityheaders
-	if enc == base64Enc {
+	if enc == Base64Enc {
 		req.Header = base64headers
 	}
 
@@ -313,31 +311,31 @@ func (c *Conn) doRPC(path string, values []kv) (code int, vals []kv, err error) 
 	if err != nil {
 		return 0, nil, err
 	}
-	m := decodeValues(resultBody, resp.Header.Get("Content-Type"))
+	m := DecodeValues(resultBody, resp.Header.Get("Content-Type"))
 	return resp.StatusCode, m, nil
 }
 
-type encoding int
+type Encoding int
 
 const (
-	identityEnc encoding = iota
-	base64Enc
+	IdentityEnc Encoding = iota
+	Base64Enc
 )
 
 // Encode the request body in TSV. The encoding is chosen based
 // on whether there are any binary data in the key/values
-func tsvEncode(values []kv) ([]byte, encoding) {
+func TSVEncode(values []KV) ([]byte, Encoding) {
 	var bufsize int
 	var hasbinary bool
 	for _, kv := range values {
 		// length of key
-		hasbinary = hasbinary || hasBinary(kv.key)
-		bufsize += base64.StdEncoding.EncodedLen(len(kv.key))
+		hasbinary = hasbinary || hasBinary(kv.Key)
+		bufsize += base64.StdEncoding.EncodedLen(len(kv.Key))
 		// tab
 		bufsize += 1
 		// value
-		hasbinary = hasbinary || hasBinarySlice(kv.value)
-		bufsize += base64.StdEncoding.EncodedLen(len(kv.value))
+		hasbinary = hasbinary || hasBinarySlice(kv.Value)
+		bufsize += base64.StdEncoding.EncodedLen(len(kv.Value))
 		// newline
 		bufsize += 1
 	}
@@ -345,25 +343,25 @@ func tsvEncode(values []kv) ([]byte, encoding) {
 	var n int
 	for _, kv := range values {
 		if hasbinary {
-			base64.StdEncoding.Encode(buf[n:], []byte(kv.key))
-			n += base64.StdEncoding.EncodedLen(len(kv.key))
+			base64.StdEncoding.Encode(buf[n:], []byte(kv.Key))
+			n += base64.StdEncoding.EncodedLen(len(kv.Key))
 		} else {
-			n += copy(buf[n:], kv.key)
+			n += copy(buf[n:], kv.Key)
 		}
 		buf[n] = '\t'
 		n++
 		if hasbinary {
-			base64.StdEncoding.Encode(buf[n:], kv.value)
-			n += base64.StdEncoding.EncodedLen(len(kv.value))
+			base64.StdEncoding.Encode(buf[n:], kv.Value)
+			n += base64.StdEncoding.EncodedLen(len(kv.Value))
 		} else {
-			n += copy(buf[n:], kv.value)
+			n += copy(buf[n:], kv.Value)
 		}
 		buf[n] = '\n'
 		n++
 	}
-	enc := identityEnc
+	enc := IdentityEnc
 	if hasbinary {
-		enc = base64Enc
+		enc = Base64Enc
 	}
 	return buf, enc
 }
@@ -387,13 +385,13 @@ func hasBinarySlice(b []byte) bool {
 	return false
 }
 
-// decodeValues takes a response from an KT RPC call and turns it into the
+// DecodeValues takes a response from an KT RPC call and turns it into the
 // values that it returned.
 //
 // KT can return values in 3 different formats, Tab separated values (TSV) without any field encoding,
 // TSV with fields base64 encoded or TSV with URL encoding.
 // KT does not give you any option as to the format that it returns, so we have to implement all of them
-func decodeValues(buf []byte, contenttype string) []kv {
+func DecodeValues(buf []byte, contenttype string) []KV {
 	if len(buf) == 0 {
 		return nil
 	}
@@ -426,7 +424,7 @@ func decodeValues(buf []byte, contenttype string) []kv {
 			recCount++
 		}
 	}
-	result := make([]kv, 0, recCount)
+	result := make([]KV, 0, recCount)
 	b := bytes.NewBuffer(buf)
 	for {
 		key, err := b.ReadBytes('\t')
@@ -441,7 +439,7 @@ func decodeValues(buf []byte, contenttype string) []kv {
 				fieldlen = len(value)
 			}
 			value = decodef(value[:fieldlen])
-			result = append(result, kv{string(key), value})
+			result = append(result, KV{string(key), value})
 		}
 		if err != nil {
 			return result
@@ -498,21 +496,21 @@ func unhex(c byte) byte {
 
 // TODO: make this return errors that can be introspected more easily
 // and make it trim components of the error to filter out unused information.
-func makeError(m []kv) error {
+func makeError(m []KV) error {
 	kv := findRec(m, "ERROR")
-	if kv.key == "" {
+	if kv.Key == "" {
 		return errors.New("kt: generic error")
 	}
-	return errors.New("kt: " + string(kv.value))
+	return errors.New("kt: " + string(kv.Value))
 }
 
-func findRec(kvs []kv, key string) kv {
+func findRec(kvs []KV, key string) KV {
 	for _, kv := range kvs {
-		if kv.key == key {
+		if kv.Key == key {
 			return kv
 		}
 	}
-	return kv{}
+	return KV{}
 }
 
 // empty header for REST calls.
