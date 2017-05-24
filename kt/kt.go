@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
@@ -18,6 +20,9 @@ const DEFAULT_TIMEOUT = 2 * time.Second
 // It uses a connection pool to efficiently communicate with the server.
 // Conn is safe for concurrent use.
 type Conn struct {
+	// Has to be first for atomic alignment
+	retryCount uint64
+
 	timeout   time.Duration
 	host      string
 	transport *http.Transport
@@ -65,6 +70,14 @@ var (
 	// I can kill it with fire.
 	ErrSuccess = errors.New("kt: success")
 )
+
+// RetryCount is the number of retries performed due to the remote end
+// closing idle connections.
+//
+// The value increases monotonically, until it wraps to 0.
+func (c *Conn) RetryCount() uint64 {
+	return atomic.LoadUint64(&c.retryCount)
+}
 
 // Count returns the number of records in the database
 func (c *Conn) Count() (int, error) {
@@ -280,27 +293,13 @@ func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) 
 		Host:   c.host,
 		Path:   path,
 	}
-	req := &http.Request{
-		Method: "POST",
-		URL:    url,
-	}
 	body, enc := TSVEncode(values)
-	req.Header = identityheaders
+	headers := identityheaders
 	if enc == Base64Enc {
-		req.Header = base64headers
+		headers = base64headers
 	}
-
-	bodyReader := bytes.NewBuffer(body)
-	req.Body = ioutil.NopCloser(bodyReader)
-	req.ContentLength = int64(len(body))
-	t := time.AfterFunc(c.timeout, func() {
-		c.transport.CancelRequest(req)
-	})
-	resp, err := c.transport.RoundTrip(req)
+	resp, t, err := c.roundTrip("POST", url, headers, body)
 	if err != nil {
-		if !t.Stop() {
-			err = ErrTimeout
-		}
 		return 0, nil, err
 	}
 	resultBody, err := ioutil.ReadAll(resp.Body)
@@ -313,6 +312,42 @@ func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) 
 	}
 	m := DecodeValues(resultBody, resp.Header.Get("Content-Type"))
 	return resp.StatusCode, m, nil
+}
+
+func (c *Conn) roundTrip(method string, url *url.URL, headers http.Header, body []byte) (*http.Response, *time.Timer, error) {
+	req, t := c.makeRequest(method, url, headers, body)
+	resp, err := c.transport.RoundTrip(req)
+	if err == io.EOF {
+		// The connection was closed by the server while it was idle,
+		// which happens during graceful shutdown. Close all idle connections
+		// and retry once.
+		t.Stop()
+		c.transport.CloseIdleConnections()
+		req, t = c.makeRequest(method, url, headers, body)
+		resp, err = c.transport.RoundTrip(req)
+		atomic.AddUint64(&c.retryCount, 1)
+	}
+	if err != nil {
+		if !t.Stop() {
+			err = ErrTimeout
+		}
+		return nil, nil, err
+	}
+	return resp, t, nil
+}
+
+func (c *Conn) makeRequest(method string, url *url.URL, headers http.Header, body []byte) (*http.Request, *time.Timer) {
+	req := &http.Request{
+		Method:        method,
+		URL:           url,
+		Header:        headers,
+		Body:          ioutil.NopCloser(bytes.NewReader(body)),
+		ContentLength: int64(len(body)),
+	}
+	t := time.AfterFunc(c.timeout, func() {
+		c.transport.CancelRequest(req)
+	})
+	return req, t
 }
 
 type Encoding int
@@ -523,21 +558,8 @@ func (c *Conn) doREST(op string, key string, val []byte) (code int, body []byte,
 		Host:   c.host,
 		Opaque: newkey,
 	}
-	req := &http.Request{
-		Method: op,
-		URL:    url,
-		Header: emptyHeader,
-	}
-	req.ContentLength = int64(len(val))
-	req.Body = ioutil.NopCloser(bytes.NewBuffer(val))
-	t := time.AfterFunc(c.timeout, func() {
-		c.transport.CancelRequest(req)
-	})
-	resp, err := c.transport.RoundTrip(req)
+	resp, t, err := c.roundTrip(op, url, emptyHeader, val)
 	if err != nil {
-		if !t.Stop() {
-			err = ErrTimeout
-		}
 		return 0, nil, err
 	}
 	resultBody, err := ioutil.ReadAll(resp.Body)
