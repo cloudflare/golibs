@@ -42,6 +42,14 @@ func NewTrackedConn(host string, port int, poolsize int, timeout time.Duration,
 		opTimer: opTimer}, nil
 }
 
+// NewTrackedConnFromConn returns a tracked connection that simply wraps the given
+// database connection.
+func NewTrackedConnFromConn(conn *Conn, opTimer *prometheus.SummaryVec) (*TrackedConn, error) {
+	return &TrackedConn{
+		kt:      conn,
+		opTimer: opTimer}, nil
+}
+
 func (c *TrackedConn) Count() (int, error) {
 	start := time.Now()
 	defer func() {
