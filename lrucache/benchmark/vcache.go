@@ -3,7 +3,7 @@
 package main
 
 import (
-	vcache "code.google.com/p/vitess/go/cache"
+	vcache "github.com/youtube/vitess/go/cache"
 )
 
 type VCache struct {
