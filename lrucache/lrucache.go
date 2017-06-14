@@ -27,6 +27,8 @@ type LRUCache struct {
 	priorityQueue priorityQueue     // some elements from table may be in priorityQueue
 	lruList       list              // every entry is either used and resides in lruList
 	freeList      list              // or free and is linked to freeList
+
+	ExpireGracePeriod time.Duration // time after an expired entry is purged from cache (unless pushed out of LRU)
 }
 
 // Initialize the LRU cache instance. O(capacity)
@@ -206,7 +208,10 @@ func (b *LRUCache) GetNotStaleNow(key string, now time.Time) (value interface{},
 	}
 
 	if e.expire.Before(now) {
-		b.removeEntry(e)
+		// Remove entries expired for more than a graceful period
+		if b.ExpireGracePeriod == 0 || e.expire.Sub(now) > b.ExpireGracePeriod {
+			b.removeEntry(e)
+		}
 		return nil, false
 	}
 
