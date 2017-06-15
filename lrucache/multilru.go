@@ -23,6 +23,13 @@ func (m *MultiLRUCache) Init(buckets, bucket_capacity uint) {
 	}
 }
 
+// Set the stale expiry grace period for each cache in the multicache instance.
+func (m *MultiLRUCache) SetExpireGracePeriod(p time.Duration) {
+	for _, c := range m.cache {
+		c.ExpireGracePeriod = p
+	}
+}
+
 func NewMultiLRUCache(buckets, bucket_capacity uint) *MultiLRUCache {
 	m := &MultiLRUCache{}
 	m.Init(buckets, bucket_capacity)
