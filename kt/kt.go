@@ -337,11 +337,15 @@ func (c *Conn) roundTrip(method string, url *url.URL, headers http.Header, body 
 }
 
 func (c *Conn) makeRequest(method string, url *url.URL, headers http.Header, body []byte) (*http.Request, *time.Timer) {
+	var rc io.ReadCloser
+	if body != nil {
+		rc = ioutil.NopCloser(bytes.NewReader(body))
+	}
 	req := &http.Request{
 		Method:        method,
 		URL:           url,
 		Header:        headers,
-		Body:          ioutil.NopCloser(bytes.NewReader(body)),
+		Body:          rc,
 		ContentLength: int64(len(body)),
 	}
 	t := time.AfterFunc(c.timeout, func() {
