@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -310,7 +311,10 @@ func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) 
 	if err != nil {
 		return 0, nil, err
 	}
-	m := DecodeValues(resultBody, resp.Header.Get("Content-Type"))
+	m, err := DecodeValues(resultBody, resp.Header.Get("Content-Type"))
+	if err != nil {
+		return 0, nil, err
+	}
 	return resp.StatusCode, m, nil
 }
 
@@ -424,19 +428,19 @@ func hasBinarySlice(b []byte) bool {
 	return false
 }
 
-// DecodeValues takes a response from an KT RPC call and turns it into the
-// values that it returned.
-//
-// KT can return values in 3 different formats, Tab separated values (TSV) without any field encoding,
-// TSV with fields base64 encoded or TSV with URL encoding.
-// KT does not give you any option as to the format that it returns, so we have to implement all of them
-func DecodeValues(buf []byte, contenttype string) []KV {
+// DecodeValues takes a response from an KT RPC call decodes it into a list of key
+// value pairs.
+func DecodeValues(buf []byte, contenttype string) ([]KV, error) {
 	if len(buf) == 0 {
-		return nil
+		return nil, nil
 	}
 	// Ideally, we should parse the mime media type here,
 	// but this is an expensive operation because mime is just
 	// that awful.
+	//
+	// KT can return values in 3 different formats, Tab separated values (TSV) without any field encoding,
+	// TSV with fields base64 encoded or TSV with URL encoding.
+	// KT does not give you any option as to the format that it returns, so we have to implement all of them
 	//
 	// KT responses are pretty simple and we can rely
 	// on it putting the parameter of colenc=[BU] at
@@ -452,7 +456,7 @@ func DecodeValues(buf []byte, contenttype string) []KV {
 	case 's':
 		decodef = identityDecode
 	default:
-		panic("kt responded with unknown content-type: " + contenttype)
+		return nil, fmt.Errorf("kt responded with unknown Content-Type: %s", contenttype)
 	}
 
 	// Because of the encoding, we can tell how many records there
@@ -468,7 +472,7 @@ func DecodeValues(buf []byte, contenttype string) []KV {
 	for {
 		key, err := b.ReadBytes('\t')
 		if err != nil {
-			return result
+			return result, nil
 		}
 		key = decodef(key[:len(key)-1])
 		value, err := b.ReadBytes('\n')
@@ -481,7 +485,7 @@ func DecodeValues(buf []byte, contenttype string) []KV {
 			result = append(result, KV{string(key), value})
 		}
 		if err != nil {
-			return result
+			return result, nil
 		}
 	}
 }
