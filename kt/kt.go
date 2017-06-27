@@ -321,10 +321,9 @@ func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) 
 func (c *Conn) roundTrip(method string, url *url.URL, headers http.Header, body []byte) (*http.Response, *time.Timer, error) {
 	req, t := c.makeRequest(method, url, headers, body)
 	resp, err := c.transport.RoundTrip(req)
-	if err == io.EOF {
-		// The connection was closed by the server while it was idle,
-		// which happens during graceful shutdown. Close all idle connections
-		// and retry once.
+	if err != nil {
+		// Ideally we would only retry when we hit a network error. This doesn't work
+		// since net/http wraps some of these errors. Do the simple thing and retry eagerly.
 		t.Stop()
 		c.transport.CloseIdleConnections()
 		req, t = c.makeRequest(method, url, headers, body)
