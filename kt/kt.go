@@ -173,6 +173,10 @@ func (c *Conn) Set(key string, value []byte) error {
 
 var zeroslice = []byte("0")
 
+func (c *Conn) GetBulkBytesSelectiveCache(keys map[string][]byte) error {
+	return c.GetBulkBytes(keys)
+}
+
 // GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
 func (c *Conn) GetBulkBytes(keys map[string][]byte) error {

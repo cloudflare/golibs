@@ -110,6 +110,10 @@ func (c *TrackedConn) Set(key string, value []byte) error {
 	return c.kt.Set(key, value)
 }
 
+func (c *TrackedConn) GetBulkBytesSelectiveCache(keys map[string][]byte) error {
+	return c.GetBulkBytes(keys)
+}
+
 func (c *TrackedConn) GetBulkBytes(keys map[string][]byte) error {
 	start := time.Now()
 	defer func() {
