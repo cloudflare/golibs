@@ -1,8 +1,7 @@
 BytePool
 --------
 
-A pool of byte slices. Similar in spirit to
-[`sync.Pool`](http://tip.golang.org/pkg/sync/#Pool) package.
+DEPRECATED. Use [`sync.Pool`](https://golang.org/pkg/sync/#Pool) instead.
 
 For discussion see this blog post:
 
