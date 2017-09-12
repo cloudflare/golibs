@@ -398,3 +398,10 @@ func TestGetBytes(t *testing.T) {
 	}
 
 }
+
+func TestIsError(t *testing.T) {
+	err := &Error{Message: "What a hoopy frood"}
+	if !IsError(err) {
+		t.Error("IsError returns false")
+	}
+}
