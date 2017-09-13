@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 )
@@ -138,12 +137,12 @@ func TestMatchPrefix(t *testing.T) {
 	}
 
 	values, err := db.MatchPrefix("//////////DoNotExistAAAAAA", 1028)
-	if len(values) != 0 || !strings.HasSuffix(err.Error(), "success") {
+	if len(values) != 0 || err != ErrSuccess {
 		t.Errorf("db.MatchPrefix(DoNotExistAAAAAA, 1000). Want 0, got ", len(values), err)
 	}
 
 	values, err = db.MatchPrefix("//////////DoNotExistBBBBBB", 1028)
-	if len(values) != 0 || !strings.HasSuffix(err.Error(), "success") {
+	if len(values) != 0 || err != ErrSuccess {
 		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want 0, got ", len(values), err)
 	}
 
@@ -393,7 +392,7 @@ func TestGetBytes(t *testing.T) {
 	}
 
 	_, err = db.GetBytes("//doesntexist")
-	if !strings.HasSuffix(err.Error(), "logical inconsistency") {
+	if err != ErrNotFound {
 		t.Fatal(err)
 	}
 
