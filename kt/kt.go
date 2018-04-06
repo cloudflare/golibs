@@ -66,6 +66,7 @@ func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn,
 		transport: &http.Transport{
 			ResponseHeaderTimeout: timeout,
 			MaxIdleConnsPerHost:   poolsize,
+			IdleConnTimeout:       30 * time.Second,
 		},
 	}
 
