@@ -9,10 +9,32 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var certExpiryTimestamp = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "ktrpc_client_certificate_expiry_timestamp",
+	Help: "The certificate expiry timestamp (UNIX epoch UTC) labeled by the certificate serial number",
+},
+	[]string{
+		"serial",
+	},
+)
+
+var once sync.Once
+
+func init() {
+	prometheus.MustRegister(certExpiryTimestamp)
+}
 
 const DEFAULT_TIMEOUT = 2 * time.Second
 
@@ -40,10 +62,90 @@ func IsError(err error) bool {
 type Conn struct {
 	// Has to be first for atomic alignment
 	retryCount uint64
+	scheme     string
+	timeout    time.Duration
+	host       string
+	transport  *http.Transport
+}
 
-	timeout   time.Duration
-	host      string
-	transport *http.Transport
+func expiryCertMetric(certFile string) error {
+	leftOverCert, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return err
+	}
+
+	var cert *pem.Block
+
+	for {
+		// Some part of this bloc come from the go standard library
+
+		// Several cert can be concatenated in the same file
+		cert, leftOverCert = pem.Decode(leftOverCert)
+
+		if cert == nil {
+			// The end of the cert list
+			return nil
+		}
+
+		if cert.Type != "CERTIFICATE" || len(cert.Headers) != 0 {
+			// This is is from src/crypto/x509/cert_pool.go
+			continue
+		}
+
+		xc, err := x509.ParseCertificate(cert.Bytes)
+		if err != nil {
+			return err
+		}
+
+		serial := (*xc.SerialNumber).String()
+		expiry := xc.NotAfter
+
+		b := certExpiryTimestamp.WithLabelValues(serial)
+		b.Set(float64(expiry.Unix()))
+	}
+}
+
+func loadCerts(creds string) (*tls.Certificate, *x509.CertPool, error) {
+	cert := path.Join(creds, "service.pem")
+	key := path.Join(creds, "service-key.pem")
+	ca := path.Join(creds, "ca.pem")
+
+	err := expiryCertMetric(cert)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	certX509, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = expiryCertMetric(ca)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	caFile, err := ioutil.ReadFile(ca)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(caFile)
+
+	return &certX509, roots, err
+}
+
+func newTLSClientConfig(creds string) (*tls.Config, error) {
+	certX509, roots, err := loadCerts(creds)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{*certX509},
+		RootCAs:      roots,
+	}, nil
 }
 
 // KT has 2 interfaces, A restful one and an RPC one.
@@ -57,13 +159,28 @@ type Conn struct {
 //
 // REST format is just the body of the HTTP request being the value.
 
-// NewConn creates a connection to an Kyoto Tycoon endpoint.
-func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn, error) {
+func newConn(host string, port int, poolsize int, timeout time.Duration, creds string) (*Conn, error) {
+	var tlsConfig *tls.Config
+	var err error
+
+	scheme := "http"
+
+	if creds != "" {
+		tlsConfig, err = newTLSClientConfig(creds)
+		if err != nil {
+			return nil, err
+		}
+
+		scheme = "https"
+	}
+
 	portstr := strconv.Itoa(port)
 	c := &Conn{
+		scheme:  scheme,
 		timeout: timeout,
 		host:    net.JoinHostPort(host, portstr),
 		transport: &http.Transport{
+			TLSClientConfig:       tlsConfig,
 			ResponseHeaderTimeout: timeout,
 			MaxIdleConnsPerHost:   poolsize,
 		},
@@ -71,11 +188,22 @@ func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn,
 
 	// connectivity check so that we can bail out
 	// early instead of when we do the first operation.
-	_, _, err := c.doRPC("/rpc/void", nil)
+	_, _, err = c.doRPC("/rpc/void", nil)
 	if err != nil {
 		return nil, err
 	}
+
 	return c, nil
+}
+
+// NewConnTLS creates a TLS enabled connection to a Kyoto Tycoon endpoing
+func NewConnTLS(host string, port int, poolsize int, timeout time.Duration, creds string) (*Conn, error) {
+	return newConn(host, port, poolsize, timeout, creds)
+}
+
+// NewConn creates a connection to an Kyoto Tycoon endpoint.
+func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn, error) {
+	return newConn(host, port, poolsize, timeout, "")
 }
 
 var (
@@ -307,7 +435,7 @@ type KV struct {
 // Do an RPC call against the KT endpoint.
 func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) {
 	url := &url.URL{
-		Scheme: "http",
+		Scheme: c.scheme,
 		Host:   c.host,
 		Path:   path,
 	}
@@ -578,7 +706,7 @@ var emptyHeader = make(http.Header)
 func (c *Conn) doREST(op string, key string, val []byte) (code int, body []byte, err error) {
 	newkey := urlenc(key)
 	url := &url.URL{
-		Scheme: "http",
+		Scheme: c.scheme,
 		Host:   c.host,
 		Opaque: newkey,
 	}
