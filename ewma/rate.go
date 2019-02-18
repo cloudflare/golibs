@@ -47,14 +47,14 @@ func (r *EwmaRate) Update(now time.Time) float64 {
 	return r.Ewma.Update(nanosec/float64(timeDelta.Nanoseconds()), now)
 }
 
-// Read the rate of events per second.
+// CurrentNow reads the rate of events per second.
 //
 // Uses system clock to determine current time.
 func (r *EwmaRate) CurrentNow() float64 {
 	return r.Current(time.Now())
 }
 
-// Read the rate of events per second, with specified current time.
+// Current reads the rate of events per second, with specified current time.
 func (r *EwmaRate) Current(now time.Time) float64 {
 	if r.lastTimestamp.IsZero() || r.lastTimestamp == now || now.Before(r.lastTimestamp) {
 		return r.Ewma.Current

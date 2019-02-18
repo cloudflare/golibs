@@ -169,7 +169,7 @@ func (b *CircularBuffer) Pop() interface{} {
 	return v
 }
 
-// Is the buffer empty?
+// Empty Is the buffer empty?
 func (b *CircularBuffer) Empty() bool {
 	// b.avail is a channel, no need for a lock
 	return len(b.avail) == 0
