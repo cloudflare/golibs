@@ -167,7 +167,7 @@ func (a sseSlice) Len() int           { return len(a) }
 func (a sseSlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a sseSlice) Less(i, j int) bool { return a[i].HiRate < a[j].HiRate }
 
-// Get the lower and upper bounds of a range for all tracked elements
+// GetAll gets the lower and upper bounds of a range for all tracked elements
 //
 // The items are sorted by decreasing upper bound. Complexity is O(k*log(k))
 // due to sorting.
@@ -190,7 +190,7 @@ func (ss *Rate) GetAll(nowTs time.Time) []RateElement {
 	return elements
 }
 
-// Get the lower and upper bounds of a range for a single element. If the
+// GetSingle gets the lower and upper bounds of a range for a single element. If the
 // element isn't tracked lower bound will be zero and upper bound will be the
 // lowest bound of all the tracked items.
 func (ss *Rate) GetSingle(key string, nowTs time.Time) (float64, float64) {

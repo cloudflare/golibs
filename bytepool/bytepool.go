@@ -79,7 +79,7 @@ func (tp *BytePool) Get(size int) []byte {
 	return x[:size]
 }
 
-// Remove all items from the pool and make them availabe for garbage
+// Drain removes all items from the pool and make them availabe for garbage
 // collection.
 func (tp *BytePool) Drain() {
 	for o := 0; o < len(tp.list_of_pools); o++ {
