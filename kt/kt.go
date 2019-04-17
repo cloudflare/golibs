@@ -30,8 +30,6 @@ var certExpiryTimestamp = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	},
 )
 
-var once sync.Once
-
 func init() {
 	prometheus.MustRegister(certExpiryTimestamp)
 }
