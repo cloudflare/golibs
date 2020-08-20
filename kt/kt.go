@@ -2,6 +2,7 @@ package kt
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -186,7 +188,9 @@ func newConn(host string, port int, poolsize int, timeout time.Duration, creds s
 
 	// connectivity check so that we can bail out
 	// early instead of when we do the first operation.
-	_, _, err = c.doRPC("/rpc/void", nil)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	_, _, err = c.doRPC(ctx, "/rpc/void", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -224,41 +228,60 @@ func (c *Conn) RetryCount() uint64 {
 }
 
 // Count returns the number of records in the database
-func (c *Conn) Count() (int, error) {
-	code, m, err := c.doRPC("/rpc/status", nil)
+func (c *Conn) Count(ctx context.Context) (int, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc Count")
+	defer span.Finish()
+	span.SetTag("url", "/rpc/status")
+
+	code, m, err := c.doRPC(ctx, "/rpc/status", nil)
 	if err != nil {
+		span.SetTag("status", err)
 		return 0, err
 	}
+
 	if code != 200 {
-		return 0, makeError(m)
+		err := makeError(m)
+		span.SetTag("status", err)
+		return 0, err
 	}
 	return strconv.Atoi(string(findRec(m, "count").Value))
 }
 
 // Remove deletes the data at key in the database.
-func (c *Conn) Remove(key string) error {
-	code, body, err := c.doREST("DELETE", key, nil)
+func (c *Conn) Remove(ctx context.Context, key string) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc Remove")
+	defer span.Finish()
+
+	code, body, err := c.doREST(ctx, "DELETE", key, nil)
 	if err != nil {
+		span.SetTag("status", err)
 		return err
 	}
 	if code == 404 {
+		span.SetTag("status", "not_found")
 		return ErrNotFound
 	}
 	if code != 204 {
-		return &Error{string(body), code}
+		err := &Error{string(body), code}
+		span.SetTag("status", err)
+		return err
 	}
 	return nil
 }
 
 // GetBulk retrieves the keys in the map. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
-func (c *Conn) GetBulk(keysAndVals map[string]string) error {
+func (c *Conn) GetBulk(ctx context.Context, keysAndVals map[string]string) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc GetBulk")
+	defer span.Finish()
+
 	m := make(map[string][]byte)
 	for k := range keysAndVals {
 		m[k] = zeroslice
 	}
-	err := c.GetBulkBytes(m)
+	err := c.doGetBulkBytes(ctx, m)
 	if err != nil {
+		span.SetTag("status", err)
 		return err
 	}
 	for k := range keysAndVals {
@@ -274,36 +297,57 @@ func (c *Conn) GetBulk(keysAndVals map[string]string) error {
 
 // Get retrieves the data stored at key. ErrNotFound is
 // returned if no such data exists
-func (c *Conn) Get(key string) (string, error) {
-	s, err := c.GetBytes(key)
+func (c *Conn) Get(ctx context.Context, key string) (string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc Get")
+	defer span.Finish()
+	span.SetTag("key", key)
+	s, err := c.doGet(ctx, key)
 	if err != nil {
 		return "", err
 	}
 	return string(s), nil
 }
 
-// GetBytes retrieves the data stored at key in the format of a byte slice
-// ErrNotFound is returned if no such data is found.
-func (c *Conn) GetBytes(key string) ([]byte, error) {
-	code, body, err := c.doREST("GET", key, nil)
+// doGet perform http request to retrieve the value associated with key
+func (c *Conn) doGet(ctx context.Context, key string) ([]byte, error) {
+	span := opentracing.SpanFromContext(ctx)
+
+	code, body, err := c.doREST(ctx, "GET", key, nil)
 	if err != nil {
+		span.SetTag("err", err)
 		return nil, err
 	}
+
 	switch code {
 	case 200:
+		span.SetTag("status", "ok")
 		break
 	case 404:
+		span.SetTag("status", "not_found")
 		return nil, ErrNotFound
 	default:
-		return nil, &Error{string(body), code}
+		err := &Error{string(body), code}
+		span.SetTag("status", err)
+		return nil, err
 	}
 	return body, nil
+}
 
+// GetBytes retrieves the data stored at key in the format of a byte slice
+// ErrNotFound is returned if no such data is found.
+func (c *Conn) GetBytes(ctx context.Context, key string) ([]byte, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc GetBytes")
+	defer span.Finish()
+	span.SetTag("key", key)
+	return c.doGet(ctx, key)
 }
 
 // Set stores the data at key
-func (c *Conn) Set(key string, value []byte) error {
-	code, body, err := c.doREST("PUT", key, value)
+func (c *Conn) Set(ctx context.Context, key string, value []byte) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc Set")
+	defer span.Finish()
+
+	code, body, err := c.doREST(ctx, "PUT", key, value)
 	if err != nil {
 		return err
 	}
@@ -318,7 +362,19 @@ var zeroslice = []byte("0")
 
 // GetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
 // If a key was not found in the database, it will be removed from the map.
-func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
+func (c *Conn) GetBulkBytes(ctx context.Context, keys map[string][]byte) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc GetBulkBytes")
+	defer span.Finish()
+	err := c.doGetBulkBytes(ctx, keys)
+	if err != nil {
+		span.SetTag("status", err)
+	}
+	return err
+}
+
+// doGetBulkBytes retrieves the keys in the map. The results will be filled in on function return.
+// If a key was not found in the database, it will be removed from the map.
+func (c *Conn) doGetBulkBytes(ctx context.Context, keys map[string][]byte) error {
 
 	// The format for querying multiple keys in KT is to send a
 	// TSV value for each key with a _ as a prefix.
@@ -331,7 +387,8 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 		keys[k] = nil
 		keystransmit = append(keystransmit, KV{"_" + k, zeroslice})
 	}
-	code, m, err := c.doRPC("/rpc/get_bulk", keystransmit)
+
+	code, m, err := c.doRPC(ctx, "/rpc/get_bulk", keystransmit)
 	if err != nil {
 		return err
 	}
@@ -353,32 +410,43 @@ func (c *Conn) GetBulkBytes(keys map[string][]byte) error {
 }
 
 // SetBulk stores the values in the map.
-func (c *Conn) SetBulk(values map[string]string) (int64, error) {
+func (c *Conn) SetBulk(ctx context.Context, values map[string]string) (int64, error) {
 	vals := make([]KV, 0, len(values))
 	for k, v := range values {
 		vals = append(vals, KV{"_" + k, []byte(v)})
 	}
-	code, m, err := c.doRPC("/rpc/set_bulk", vals)
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc SetBulk")
+	defer span.Finish()
+
+	code, m, err := c.doRPC(ctx, "/rpc/set_bulk", vals)
 	if err != nil {
+		span.SetTag("status", err)
 		return 0, err
 	}
 	if code != 200 {
+		span.SetTag("status", code)
 		return 0, makeError(m)
 	}
 	return strconv.ParseInt(string(findRec(m, "num").Value), 10, 64)
 }
 
 // RemoveBulk deletes the values
-func (c *Conn) RemoveBulk(keys []string) (int64, error) {
+func (c *Conn) RemoveBulk(ctx context.Context, keys []string) (int64, error) {
 	vals := make([]KV, 0, len(keys))
 	for _, k := range keys {
 		vals = append(vals, KV{"_" + k, zeroslice})
 	}
-	code, m, err := c.doRPC("/rpc/remove_bulk", vals)
+
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc RemoveBulk")
+	defer span.Finish()
+
+	code, m, err := c.doRPC(ctx, "/rpc/remove_bulk", vals)
 	if err != nil {
+		span.SetTag("status", err)
 		return 0, err
 	}
 	if code != 200 {
+		span.SetTag("status", code)
 		return 0, makeError(m)
 	}
 	return strconv.ParseInt(string(findRec(m, "num").Value), 10, 64)
@@ -388,16 +456,24 @@ func (c *Conn) RemoveBulk(keys []string) (int64, error) {
 // It returns a sorted list of strings.
 // The error may be ErrSuccess in the case that no records were found.
 // This is for compatibility with the old gokabinet library.
-func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
+func (c *Conn) MatchPrefix(ctx context.Context, key string, maxrecords int64) ([]string, error) {
 	keystransmit := []KV{
 		{"prefix", []byte(key)},
 		{"max", []byte(strconv.FormatInt(maxrecords, 10))},
 	}
-	code, m, err := c.doRPC("/rpc/match_prefix", keystransmit)
+
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc MatchPrefix")
+	defer span.Finish()
+	span.SetTag("prefix", key)
+	span.SetTag("limit", maxrecords)
+
+	code, m, err := c.doRPC(ctx, "/rpc/match_prefix", keystransmit)
 	if err != nil {
+		span.SetTag("status", err)
 		return nil, err
 	}
 	if code != 200 {
+		span.SetTag("status", code)
 		return nil, makeError(m)
 	}
 	res := make([]string, 0, len(m))
@@ -407,6 +483,7 @@ func (c *Conn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
 		}
 	}
 	if len(res) == 0 {
+		span.SetTag("status", ErrSuccess)
 		// yeah, gokabinet was weird here.
 		return nil, ErrSuccess
 	}
@@ -431,7 +508,7 @@ type KV struct {
 }
 
 // Do an RPC call against the KT endpoint.
-func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) {
+func (c *Conn) doRPC(ctx context.Context, path string, values []KV) (code int, vals []KV, err error) {
 	url := &url.URL{
 		Scheme: c.scheme,
 		Host:   c.host,
@@ -442,7 +519,7 @@ func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) 
 	if enc == Base64Enc {
 		headers = base64headers
 	}
-	resp, t, err := c.roundTrip("POST", url, headers, body)
+	resp, t, err := c.roundTrip(ctx, "POST", url, headers, body)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -461,15 +538,15 @@ func (c *Conn) doRPC(path string, values []KV) (code int, vals []KV, err error) 
 	return resp.StatusCode, m, nil
 }
 
-func (c *Conn) roundTrip(method string, url *url.URL, headers http.Header, body []byte) (*http.Response, *time.Timer, error) {
-	req, t := c.makeRequest(method, url, headers, body)
+func (c *Conn) roundTrip(ctx context.Context, method string, url *url.URL, headers http.Header, body []byte) (*http.Response, *time.Timer, error) {
+	req, t := c.makeRequest(ctx, method, url, headers, body)
 	resp, err := c.transport.RoundTrip(req)
 	if err != nil {
 		// Ideally we would only retry when we hit a network error. This doesn't work
 		// since net/http wraps some of these errors. Do the simple thing and retry eagerly.
 		t.Stop()
 		c.transport.CloseIdleConnections()
-		req, t = c.makeRequest(method, url, headers, body)
+		req, t = c.makeRequest(ctx, method, url, headers, body)
 		resp, err = c.transport.RoundTrip(req)
 		atomic.AddUint64(&c.retryCount, 1)
 	}
@@ -482,11 +559,22 @@ func (c *Conn) roundTrip(method string, url *url.URL, headers http.Header, body 
 	return resp, t, nil
 }
 
-func (c *Conn) makeRequest(method string, url *url.URL, headers http.Header, body []byte) (*http.Request, *time.Timer) {
+func (c *Conn) makeRequest(ctx context.Context, method string, url *url.URL, headers http.Header, body []byte) (*http.Request, *time.Timer) {
 	var rc io.ReadCloser
 	if body != nil {
 		rc = ioutil.NopCloser(bytes.NewReader(body))
 	}
+
+	// inject span context into the HTTP request header to propagate it
+	// to server-side
+	if span := opentracing.SpanFromContext(ctx); span != nil {
+		opentracing.GlobalTracer().Inject(
+			span.Context(),
+			opentracing.HTTPHeaders,
+			opentracing.HTTPHeadersCarrier(headers),
+		)
+	}
+
 	req := &http.Request{
 		Method:        method,
 		URL:           url,
@@ -494,6 +582,9 @@ func (c *Conn) makeRequest(method string, url *url.URL, headers http.Header, bod
 		Body:          rc,
 		ContentLength: int64(len(body)),
 	}
+
+	req = req.WithContext(ctx)
+
 	t := time.AfterFunc(c.timeout, func() {
 		c.transport.CancelRequest(req)
 	})
@@ -701,14 +792,14 @@ func findRec(kvs []KV, key string) KV {
 // empty header for REST calls.
 var emptyHeader = make(http.Header)
 
-func (c *Conn) doREST(op string, key string, val []byte) (code int, body []byte, err error) {
+func (c *Conn) doREST(ctx context.Context, op string, key string, val []byte) (code int, body []byte, err error) {
 	newkey := urlenc(key)
 	url := &url.URL{
 		Scheme: c.scheme,
 		Host:   c.host,
 		Opaque: newkey,
 	}
-	resp, t, err := c.roundTrip(op, url, emptyHeader, val)
+	resp, t, err := c.roundTrip(ctx, op, url, emptyHeader, val)
 	if err != nil {
 		return 0, nil, err
 	}

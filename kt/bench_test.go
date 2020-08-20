@@ -1,12 +1,14 @@
 package kt
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
 )
 
 func BenchmarkSet(b *testing.B) {
+	ctx := context.Background()
 	cmd := startServer(b)
 	defer haltServer(cmd, b)
 	conn, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -16,11 +18,12 @@ func BenchmarkSet(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		str := strconv.Itoa(i)
-		conn.Set(str, []byte(str))
+		conn.Set(ctx, str, []byte(str))
 	}
 }
 
 func BenchmarkSetLarge(b *testing.B) {
+	ctx := context.Background()
 	cmd := startServer(b)
 	defer haltServer(cmd, b)
 	conn, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -31,24 +34,25 @@ func BenchmarkSetLarge(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		str := strconv.Itoa(i)
-		conn.Set(str, large[:])
+		conn.Set(ctx, str, large[:])
 	}
 }
 
 func BenchmarkGet(b *testing.B) {
+	ctx := context.Background()
 	cmd := startServer(b)
 	defer haltServer(cmd, b)
 	conn, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
 		b.Fatal(err.Error())
 	}
-	err = conn.Set("something", []byte("foobar"))
+	err = conn.Set(ctx, "something", []byte("foobar"))
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := conn.Get("something")
+		_, err := conn.Get(ctx, "something")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -56,19 +60,20 @@ func BenchmarkGet(b *testing.B) {
 }
 
 func BenchmarkGetLarge(b *testing.B) {
+	ctx := context.Background()
 	cmd := startServer(b)
 	defer haltServer(cmd, b)
 	conn, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
 	if err != nil {
 		b.Fatal(err.Error())
 	}
-	err = conn.Set("something", make([]byte, 4096))
+	err = conn.Set(ctx, "something", make([]byte, 4096))
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := conn.Get("something")
+		_, err := conn.Get(ctx, "something")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -76,6 +81,7 @@ func BenchmarkGetLarge(b *testing.B) {
 }
 
 func BenchmarkBulkBytes(b *testing.B) {
+	ctx := context.Background()
 	cmd := startServer(b)
 	defer haltServer(cmd, b)
 	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -89,11 +95,11 @@ func BenchmarkBulkBytes(b *testing.B) {
 	}
 
 	for k := range keys {
-		db.Set(k, []byte("something"))
+		db.Set(ctx, k, []byte("something"))
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err := db.GetBulkBytes(keys)
+		err := db.GetBulkBytes(ctx, keys)
 		if err != nil {
 			b.Fatal(err)
 		}

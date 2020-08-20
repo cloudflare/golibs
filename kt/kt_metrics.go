@@ -1,6 +1,7 @@
 package kt
 
 import (
+	"context"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -50,102 +51,102 @@ func NewTrackedConnFromConn(conn *Conn, opTimer *prometheus.SummaryVec) (*Tracke
 		opTimer: opTimer}, nil
 }
 
-func (c *TrackedConn) Count() (int, error) {
+func (c *TrackedConn) Count(ctx context.Context) (int, error) {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opGet).Observe(since.Seconds())
 	}()
 
-	return c.kt.Count()
+	return c.kt.Count(ctx)
 }
 
-func (c *TrackedConn) Remove(key string) error {
+func (c *TrackedConn) Remove(ctx context.Context, key string) error {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opRemove).Observe(since.Seconds())
 	}()
 
-	return c.kt.Remove(key)
+	return c.kt.Remove(ctx, key)
 }
 
-func (c *TrackedConn) GetBulk(keysAndVals map[string]string) error {
+func (c *TrackedConn) GetBulk(ctx context.Context, keysAndVals map[string]string) error {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opGetBulk).Observe(since.Seconds())
 	}()
 
-	return c.kt.GetBulk(keysAndVals)
+	return c.kt.GetBulk(ctx, keysAndVals)
 }
 
-func (c *TrackedConn) Get(key string) (string, error) {
+func (c *TrackedConn) Get(ctx context.Context, key string) (string, error) {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opGet).Observe(since.Seconds())
 	}()
 
-	return c.kt.Get(key)
+	return c.kt.Get(ctx, key)
 }
 
-func (c *TrackedConn) GetBytes(key string) ([]byte, error) {
+func (c *TrackedConn) GetBytes(ctx context.Context, key string) ([]byte, error) {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opGetBytes).Observe(since.Seconds())
 	}()
 
-	return c.kt.GetBytes(key)
+	return c.kt.GetBytes(ctx, key)
 }
 
-func (c *TrackedConn) Set(key string, value []byte) error {
+func (c *TrackedConn) Set(ctx context.Context, key string, value []byte) error {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opSet).Observe(since.Seconds())
 	}()
 
-	return c.kt.Set(key, value)
+	return c.kt.Set(ctx, key, value)
 }
 
-func (c *TrackedConn) GetBulkBytes(keys map[string][]byte) error {
+func (c *TrackedConn) GetBulkBytes(ctx context.Context, keys map[string][]byte) error {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opGetBulkBytes).Observe(since.Seconds())
 	}()
 
-	return c.kt.GetBulkBytes(keys)
+	return c.kt.GetBulkBytes(ctx, keys)
 }
 
-func (c *TrackedConn) SetBulk(values map[string]string) (int64, error) {
+func (c *TrackedConn) SetBulk(ctx context.Context, values map[string]string) (int64, error) {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opSetBulk).Observe(since.Seconds())
 	}()
 
-	return c.kt.SetBulk(values)
+	return c.kt.SetBulk(ctx, values)
 }
 
-func (c *TrackedConn) RemoveBulk(keys []string) (int64, error) {
+func (c *TrackedConn) RemoveBulk(ctx context.Context, keys []string) (int64, error) {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opRemoveBulk).Observe(since.Seconds())
 	}()
 
-	return c.kt.RemoveBulk(keys)
+	return c.kt.RemoveBulk(ctx, keys)
 }
 
-func (c *TrackedConn) MatchPrefix(key string, maxrecords int64) ([]string, error) {
+func (c *TrackedConn) MatchPrefix(ctx context.Context, key string, maxrecords int64) ([]string, error) {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opMatchPrefix).Observe(since.Seconds())
 	}()
 
-	return c.kt.MatchPrefix(key, maxrecords)
+	return c.kt.MatchPrefix(ctx, key, maxrecords)
 }
