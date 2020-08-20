@@ -1,6 +1,7 @@
 package kt
 
 import (
+	"context"
 	"net"
 	"os/exec"
 	"reflect"
@@ -51,7 +52,7 @@ func haltServer(cmd *exec.Cmd, t testing.TB) {
 }
 
 func TestCount(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 
@@ -60,8 +61,8 @@ func TestCount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	db.Set("name", []byte("Steve Vai"))
-	if n, err := db.Count(); err != nil {
+	db.Set(ctx, "name", []byte("Steve Vai"))
+	if n, err := db.Count(ctx); err != nil {
 		t.Error(err)
 	} else if n != 1 {
 		t.Errorf("Count failed: want 1, got %d.", n)
@@ -69,7 +70,7 @@ func TestCount(t *testing.T) {
 }
 
 func TestGetSet(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 
@@ -79,8 +80,8 @@ func TestGetSet(t *testing.T) {
 	}
 	keys := []string{"a", "b", "c"}
 	for _, k := range keys {
-		db.Set(k, []byte(k))
-		got, _ := db.Get(k)
+		db.Set(ctx, k, []byte(k))
+		got, _ := db.Get(ctx, k)
 		if got != k {
 			t.Errorf("Get failed: want %s, got %s.", k, got)
 		}
@@ -88,7 +89,7 @@ func TestGetSet(t *testing.T) {
 }
 
 func TestMatchPrefix(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -103,7 +104,7 @@ func TestMatchPrefix(t *testing.T) {
 		"cache/news/4",
 	}
 	for _, k := range keys {
-		db.Set(k, []byte("something"))
+		db.Set(ctx, k, []byte("something"))
 	}
 	var tests = []struct {
 		max      int64
@@ -127,7 +128,7 @@ func TestMatchPrefix(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		values, err := db.MatchPrefix(tt.prefix, tt.max)
+		values, err := db.MatchPrefix(ctx, tt.prefix, tt.max)
 		if err != nil && tt.expected != nil {
 			t.Fatal(err)
 		}
@@ -136,24 +137,24 @@ func TestMatchPrefix(t *testing.T) {
 		}
 	}
 
-	values, err := db.MatchPrefix("//////////DoNotExistAAAAAA", 1028)
+	values, err := db.MatchPrefix(ctx, "//////////DoNotExistAAAAAA", 1028)
 	if len(values) != 0 || err != ErrSuccess {
-		t.Errorf("db.MatchPrefix(DoNotExistAAAAAA, 1000). Want 0, got ", len(values), err)
+		t.Errorf("db.MatchPrefix(DoNotExistAAAAAA, 1000). Want %d, got %d", len(values), err)
 	}
 
-	values, err = db.MatchPrefix("//////////DoNotExistBBBBBB", 1028)
+	values, err = db.MatchPrefix(ctx, "//////////DoNotExistBBBBBB", 1028)
 	if len(values) != 0 || err != ErrSuccess {
-		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want 0, got ", len(values), err)
+		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want %d, got %d", len(values), err)
 	}
 
-	values, err = db.MatchPrefix("c", 1028)
+	values, err = db.MatchPrefix(ctx, "c", 1028)
 	if len(values) != 4 || err != nil {
-		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want 0, got ", len(values), err)
+		t.Errorf("db.MatchPrefix(//////////DoNotExistBBBBBB, 1028). Want %d, got %d", len(values), err)
 	}
 }
 
 func TestGetBulk(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -172,11 +173,11 @@ func TestGetBulk(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(k, []byte(v))
+		db.Set(ctx, k, []byte(v))
 		testKeys[k] = ""
 	}
 
-	err = db.GetBulk(testKeys)
+	err = db.GetBulk(ctx, testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,12 +189,12 @@ func TestGetBulk(t *testing.T) {
 	}
 
 	// Now remove some keys
-	db.Remove("cache/news/1")
-	db.Remove("cache/news/2")
+	db.Remove(ctx, "cache/news/1")
+	db.Remove(ctx, "cache/news/2")
 	delete(baseKeys, "cache/news/1")
 	delete(baseKeys, "cache/news/2")
 
-	err = db.GetBulk(testKeys)
+	err = db.GetBulk(ctx, testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +211,7 @@ func TestGetBulk(t *testing.T) {
 }
 
 func TestSetGetRemoveBulk(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -234,11 +235,11 @@ func TestSetGetRemoveBulk(t *testing.T) {
 		removeKeys = append(removeKeys, k)
 	}
 
-	if _, err := db.SetBulk(baseKeys); err != nil {
+	if _, err := db.SetBulk(ctx, baseKeys); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := db.GetBulk(testKeys); err != nil {
+	if err := db.GetBulk(ctx, testKeys); err != nil {
 		t.Fatal(err)
 	}
 
@@ -248,18 +249,18 @@ func TestSetGetRemoveBulk(t *testing.T) {
 		}
 	}
 
-	if _, err := db.RemoveBulk(removeKeys); err != nil {
+	if _, err := db.RemoveBulk(ctx, removeKeys); err != nil {
 		t.Fatal(err)
 	}
 
-	count, _ := db.Count()
+	count, _ := db.Count(ctx)
 	if count != 0 {
 		t.Errorf("db.RemoveBulk(). Want %v. Got %v", 0, count)
 	}
 }
 
 func TestGetBulkBytes(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -278,11 +279,11 @@ func TestGetBulkBytes(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(k, v)
+		db.Set(ctx, k, v)
 		testKeys[k] = []byte("")
 	}
 
-	err = db.GetBulkBytes(testKeys)
+	err = db.GetBulkBytes(ctx, testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,10 +295,10 @@ func TestGetBulkBytes(t *testing.T) {
 	}
 
 	// Now remove some keys
-	db.Remove("cache/news/4")
+	db.Remove(ctx, "cache/news/4")
 	delete(baseKeys, "cache/news/4")
 
-	err = db.GetBulkBytes(testKeys)
+	err = db.GetBulkBytes(ctx, testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,18 +321,18 @@ func TestGetBulkBytes(t *testing.T) {
 		"XXXcache/news/5": []byte(""),
 		"XXXcache/news/6": []byte(""),
 	}
-	err = db.GetBulkBytes(noKeys)
+	err = db.GetBulkBytes(ctx, noKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(noKeys) != 0 {
-		t.Errorf("db.GetBulkBinary. Want 0, got ", len(noKeys))
+		t.Errorf("db.GetBulkBinary. Want %d, got %d", 0, len(noKeys))
 	}
 }
 
 func TestGetBulkBytesLargeValue(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -350,11 +351,11 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(k, v)
+		db.Set(ctx, k, v)
 		testKeys[k] = []byte("")
 	}
 
-	err = db.GetBulkBytes(testKeys)
+	err = db.GetBulkBytes(ctx, testKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +366,7 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 		}
 	}
 
-	err = db.GetBulkBytes(make(map[string][]byte))
+	err = db.GetBulkBytes(ctx, make(map[string][]byte))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +374,7 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 	wrong := make(map[string][]byte)
 	wrong["/////doesntexitst"] = []byte("blah")
 
-	err = db.GetBulkBytes(wrong)
+	err = db.GetBulkBytes(ctx, wrong)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +384,7 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 }
 
 func TestGetBytes(t *testing.T) {
-
+	ctx := context.Background()
 	cmd := startServer(t)
 	defer haltServer(cmd, t)
 	db, err := NewConn(KTHOST, KTPORT, 1, DEFAULT_TIMEOUT)
@@ -391,7 +392,7 @@ func TestGetBytes(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	_, err = db.GetBytes("//doesntexist")
+	_, err = db.GetBytes(ctx, "//doesntexist")
 	if err != ErrNotFound {
 		t.Fatal(err)
 	}
