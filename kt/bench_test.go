@@ -18,7 +18,7 @@ func BenchmarkSet(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		str := strconv.Itoa(i)
-		conn.Set(ctx, str, []byte(str))
+		conn.set(ctx, str, []byte(str))
 	}
 }
 
@@ -34,7 +34,7 @@ func BenchmarkSetLarge(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		str := strconv.Itoa(i)
-		conn.Set(ctx, str, large[:])
+		conn.set(ctx, str, large[:])
 	}
 }
 
@@ -46,7 +46,7 @@ func BenchmarkGet(b *testing.B) {
 	if err != nil {
 		b.Fatal(err.Error())
 	}
-	err = conn.Set(ctx, "something", []byte("foobar"))
+	err = conn.set(ctx, "something", []byte("foobar"))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func BenchmarkGetLarge(b *testing.B) {
 	if err != nil {
 		b.Fatal(err.Error())
 	}
-	err = conn.Set(ctx, "something", make([]byte, 4096))
+	err = conn.set(ctx, "something", make([]byte, 4096))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func BenchmarkBulkBytes(b *testing.B) {
 	}
 
 	for k := range keys {
-		db.Set(ctx, k, []byte("something"))
+		db.set(ctx, k, []byte("something"))
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

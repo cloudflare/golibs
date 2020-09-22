@@ -248,8 +248,7 @@ func (c *Conn) Count(ctx context.Context) (int, error) {
 	return strconv.Atoi(string(findRec(m, "count").Value))
 }
 
-// Remove deletes the data at key in the database.
-func (c *Conn) Remove(ctx context.Context, key string) error {
+func (c *Conn) remove(ctx context.Context, key string) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc Remove")
 	defer span.Finish()
 
@@ -344,7 +343,7 @@ func (c *Conn) GetBytes(ctx context.Context, key string) ([]byte, error) {
 }
 
 // Set stores the data at key
-func (c *Conn) Set(ctx context.Context, key string, value []byte) error {
+func (c *Conn) set(ctx context.Context, key string, value []byte) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "ktrpc Set")
 	defer span.Finish()
 
@@ -411,7 +410,7 @@ func (c *Conn) doGetBulkBytes(ctx context.Context, keys map[string][]byte) error
 }
 
 // SetBulk stores the values in the map.
-func (c *Conn) SetBulk(ctx context.Context, values map[string]string) (int64, error) {
+func (c *Conn) setBulk(ctx context.Context, values map[string]string) (int64, error) {
 	vals := make([]KV, 0, len(values))
 	for k, v := range values {
 		vals = append(vals, KV{"_" + k, []byte(v)})
@@ -431,8 +430,7 @@ func (c *Conn) SetBulk(ctx context.Context, values map[string]string) (int64, er
 	return strconv.ParseInt(string(findRec(m, "num").Value), 10, 64)
 }
 
-// RemoveBulk deletes the values
-func (c *Conn) RemoveBulk(ctx context.Context, keys []string) (int64, error) {
+func (c *Conn) removeBulk(ctx context.Context, keys []string) (int64, error) {
 	vals := make([]KV, 0, len(keys))
 	for _, k := range keys {
 		vals = append(vals, KV{"_" + k, zeroslice})
