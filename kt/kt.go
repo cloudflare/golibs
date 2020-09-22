@@ -183,6 +183,7 @@ func newConn(host string, port int, poolsize int, timeout time.Duration, creds s
 			TLSClientConfig:       tlsConfig,
 			ResponseHeaderTimeout: timeout,
 			MaxIdleConnsPerHost:   poolsize,
+			IdleConnTimeout:       30 * time.Second,
 		},
 	}
 
