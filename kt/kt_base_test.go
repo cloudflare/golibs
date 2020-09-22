@@ -61,7 +61,7 @@ func TestCount(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	db.Set(ctx, "name", []byte("Steve Vai"))
+	db.set(ctx, "name", []byte("Steve Vai"))
 	if n, err := db.Count(ctx); err != nil {
 		t.Error(err)
 	} else if n != 1 {
@@ -80,7 +80,7 @@ func TestGetSet(t *testing.T) {
 	}
 	keys := []string{"a", "b", "c"}
 	for _, k := range keys {
-		db.Set(ctx, k, []byte(k))
+		db.set(ctx, k, []byte(k))
 		got, _ := db.Get(ctx, k)
 		if got != k {
 			t.Errorf("Get failed: want %s, got %s.", k, got)
@@ -104,7 +104,7 @@ func TestMatchPrefix(t *testing.T) {
 		"cache/news/4",
 	}
 	for _, k := range keys {
-		db.Set(ctx, k, []byte("something"))
+		db.set(ctx, k, []byte("something"))
 	}
 	var tests = []struct {
 		max      int64
@@ -173,7 +173,7 @@ func TestGetBulk(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(ctx, k, []byte(v))
+		db.set(ctx, k, []byte(v))
 		testKeys[k] = ""
 	}
 
@@ -189,8 +189,8 @@ func TestGetBulk(t *testing.T) {
 	}
 
 	// Now remove some keys
-	db.Remove(ctx, "cache/news/1")
-	db.Remove(ctx, "cache/news/2")
+	db.remove(ctx, "cache/news/1")
+	db.remove(ctx, "cache/news/2")
 	delete(baseKeys, "cache/news/1")
 	delete(baseKeys, "cache/news/2")
 
@@ -235,7 +235,7 @@ func TestSetGetRemoveBulk(t *testing.T) {
 		removeKeys = append(removeKeys, k)
 	}
 
-	if _, err := db.SetBulk(ctx, baseKeys); err != nil {
+	if _, err := db.setBulk(ctx, baseKeys); err != nil {
 		t.Fatal(err)
 	}
 
@@ -249,13 +249,13 @@ func TestSetGetRemoveBulk(t *testing.T) {
 		}
 	}
 
-	if _, err := db.RemoveBulk(ctx, removeKeys); err != nil {
+	if _, err := db.removeBulk(ctx, removeKeys); err != nil {
 		t.Fatal(err)
 	}
 
 	count, _ := db.Count(ctx)
 	if count != 0 {
-		t.Errorf("db.RemoveBulk(). Want %v. Got %v", 0, count)
+		t.Errorf("db.removeBulk(). Want %v. Got %v", 0, count)
 	}
 }
 
@@ -279,7 +279,7 @@ func TestGetBulkBytes(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(ctx, k, v)
+		db.set(ctx, k, v)
 		testKeys[k] = []byte("")
 	}
 
@@ -295,7 +295,7 @@ func TestGetBulkBytes(t *testing.T) {
 	}
 
 	// Now remove some keys
-	db.Remove(ctx, "cache/news/4")
+	db.remove(ctx, "cache/news/4")
 	delete(baseKeys, "cache/news/4")
 
 	err = db.GetBulkBytes(ctx, testKeys)
@@ -351,7 +351,7 @@ func TestGetBulkBytesLargeValue(t *testing.T) {
 	}
 
 	for k, v := range baseKeys {
-		db.Set(ctx, k, v)
+		db.set(ctx, k, v)
 		testKeys[k] = []byte("")
 	}
 

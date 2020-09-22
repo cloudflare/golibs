@@ -68,7 +68,7 @@ func (c *TrackedConn) Remove(ctx context.Context, key string) error {
 		c.opTimer.WithLabelValues(opRemove).Observe(since.Seconds())
 	}()
 
-	return c.kt.Remove(ctx, key)
+	return c.kt.remove(ctx, key)
 }
 
 func (c *TrackedConn) GetBulk(ctx context.Context, keysAndVals map[string]string) error {
@@ -101,14 +101,14 @@ func (c *TrackedConn) GetBytes(ctx context.Context, key string) ([]byte, error) 
 	return c.kt.GetBytes(ctx, key)
 }
 
-func (c *TrackedConn) Set(ctx context.Context, key string, value []byte) error {
+func (c *TrackedConn) set(ctx context.Context, key string, value []byte) error {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opSet).Observe(since.Seconds())
 	}()
 
-	return c.kt.Set(ctx, key, value)
+	return c.kt.set(ctx, key, value)
 }
 
 func (c *TrackedConn) GetBulkBytes(ctx context.Context, keys map[string][]byte) error {
@@ -121,14 +121,14 @@ func (c *TrackedConn) GetBulkBytes(ctx context.Context, keys map[string][]byte) 
 	return c.kt.GetBulkBytes(ctx, keys)
 }
 
-func (c *TrackedConn) SetBulk(ctx context.Context, values map[string]string) (int64, error) {
+func (c *TrackedConn) setBulk(ctx context.Context, values map[string]string) (int64, error) {
 	start := time.Now()
 	defer func() {
 		since := time.Since(start)
 		c.opTimer.WithLabelValues(opSetBulk).Observe(since.Seconds())
 	}()
 
-	return c.kt.SetBulk(ctx, values)
+	return c.kt.setBulk(ctx, values)
 }
 
 func (c *TrackedConn) RemoveBulk(ctx context.Context, keys []string) (int64, error) {
@@ -138,7 +138,7 @@ func (c *TrackedConn) RemoveBulk(ctx context.Context, keys []string) (int64, err
 		c.opTimer.WithLabelValues(opRemoveBulk).Observe(since.Seconds())
 	}()
 
-	return c.kt.RemoveBulk(ctx, keys)
+	return c.kt.removeBulk(ctx, keys)
 }
 
 func (c *TrackedConn) MatchPrefix(ctx context.Context, key string, maxrecords int64) ([]string, error) {
