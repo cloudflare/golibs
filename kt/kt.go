@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -206,7 +208,56 @@ func NewConnTLS(host string, port int, poolsize int, timeout time.Duration, cred
 
 // NewConn creates a connection to an Kyoto Tycoon endpoint.
 func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn, error) {
-	return newConn(host, port, poolsize, timeout, "")
+	parts := strings.Split(host, "://")
+
+	if len(parts) == 1 {
+		return newConn(host, port, poolsize, timeout, "")
+	} else if len(parts) == 2 {
+		if parts[0] != "unix" {
+			return nil, errors.New("NewConn: Unexpected network")
+		}
+		return newUnixConn(parts[1], poolsize, timeout)
+	} else {
+		return nil, errors.New("NewConn: Wrong parameters")
+	}
+}
+
+type unixDialer struct {
+	net.Dialer
+}
+
+func (d *unixDialer) Dial(network, address string) (net.Conn, error) {
+	// Hackery to remove port 80
+	parts := strings.Split(address, ":")
+	return d.Dialer.Dial("unix", parts[0])
+}
+
+func newUnixConn(socket string, poolsize int, timeout time.Duration) (*Conn, error) {
+	c := Conn{
+		scheme:  "http",
+		timeout: timeout,
+		host:    socket,
+		transport: &http.Transport{
+			ResponseHeaderTimeout: timeout,
+			IdleConnTimeout:       30 * time.Second,
+
+			Dial: (&unixDialer{net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			},
+			}).Dial},
+	}
+
+	// connectivity check so that we can bail out
+	// early instead of when we do the first operation.
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	_, _, err := c.doRPC(ctx, "/rpc/void", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &c, nil
 }
 
 var (
@@ -513,6 +564,7 @@ func (c *Conn) doRPC(ctx context.Context, path string, values []KV) (code int, v
 		Host:   c.host,
 		Path:   path,
 	}
+
 	body, enc := TSVEncode(values)
 	headers := identityheaders
 	if enc == Base64Enc {

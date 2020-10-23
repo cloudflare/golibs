@@ -3,9 +3,11 @@ package kt
 import (
 	"context"
 	"net"
+	"os"
 	"os/exec"
 	"reflect"
 	"strconv"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -15,6 +17,44 @@ const (
 	KTPORT = 23034
 )
 
+func startServerUnix(t testing.TB, sockAddr string) *exec.Cmd {
+	db := "/tmp/test.rocksdb"
+
+	cmd := exec.Command("qsutil", "db", "create", db)
+	// This is a hack. As long as QS is running the file won't be removed by the kernel.
+	defer os.RemoveAll(db)
+
+	if err := cmd.Run(); err != nil {
+		t.Fatal("failed to create QS DB: ", err)
+	}
+
+	cmd = exec.Command("qsdaemon", "--ktrpc=unix://"+sockAddr, "--cli=tcp4://localhost:4242", db)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	if err := cmd.Start(); err != nil {
+		t.Fatal("failed to start QS: ", err)
+	}
+
+	for i := 0; ; i++ {
+		conn, err := net.Dial("tcp", "localhost:4242")
+		if err == nil {
+			break
+			conn.Close()
+		}
+		time.Sleep(50 * time.Millisecond)
+		if i > 50 {
+			t.Fatal("failed to start QS: ", err)
+		}
+	}
+
+	cmdW := exec.Command("qsutil", "cli", "set", "--server=tcp4://localhost:4242", "1", "2")
+	if err := cmdW.Run(); err != nil {
+		t.Fatal("failed to write to QS: ", err)
+	}
+
+	return cmd
+}
+
 func startServer(t testing.TB) *exec.Cmd {
 	port := strconv.Itoa(KTPORT)
 
@@ -23,6 +63,7 @@ func startServer(t testing.TB) *exec.Cmd {
 	}
 
 	cmd := exec.Command("ktserver", "-host", KTHOST, "-port", port, "%")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	if err := cmd.Start(); err != nil {
 		t.Fatal("failed to start KT: ", err)
@@ -42,9 +83,10 @@ func startServer(t testing.TB) *exec.Cmd {
 }
 
 func haltServer(cmd *exec.Cmd, t testing.TB) {
-	if err := cmd.Process.Kill(); err != nil {
-		t.Fatal("failed to halt KT: ", err)
-	}
+	defer os.RemoveAll("/tmp/bad.sock")
+
+	// QS forks a child for zero downtime upgrade so we need this hackery
+	syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 
 	if _, err := cmd.Process.Wait(); err != nil {
 		t.Fatal("failed to halt KT: ", err)
@@ -396,7 +438,32 @@ func TestGetBytes(t *testing.T) {
 	if err != ErrNotFound {
 		t.Fatal(err)
 	}
+}
 
+func TestGetBytesUnix(t *testing.T) {
+	sock := "/tmp/bad.sock"
+	ctx := context.Background()
+	cmd := startServerUnix(t, sock)
+
+	defer haltServer(cmd, t)
+
+	db, err := NewConn("unix://"+sock, 0, 1, DEFAULT_TIMEOUT)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = db.GetBytes(ctx, "//doesntexist")
+	if err != ErrNotFound {
+		t.Fatal(err)
+	}
+	v, err := db.GetBytes(ctx, "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(v) != "2" {
+		t.Fatal("KV pair does not match")
+	}
 }
 
 func TestIsError(t *testing.T) {
