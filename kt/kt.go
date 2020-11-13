@@ -191,9 +191,7 @@ func newConn(host string, port int, poolsize int, timeout time.Duration, creds s
 
 	// connectivity check so that we can bail out
 	// early instead of when we do the first operation.
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	_, _, err = c.doRPC(ctx, "/rpc/void", nil)
+	err = c.CheckConn()
 	if err != nil {
 		return nil, err
 	}
@@ -220,6 +218,15 @@ func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn,
 	} else {
 		return nil, errors.New("NewConn: Wrong parameters")
 	}
+}
+
+// CheckConn can be used to check connection to Kyoto Tycoon endpoint is working as expected.
+func (c *Conn) CheckConn() error {
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	_, _, err := c.doRPC(ctx, "/rpc/void", nil)
+	return err
 }
 
 type unixDialer struct {
@@ -250,9 +257,7 @@ func newUnixConn(socket string, poolsize int, timeout time.Duration) (*Conn, err
 
 	// connectivity check so that we can bail out
 	// early instead of when we do the first operation.
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	_, _, err := c.doRPC(ctx, "/rpc/void", nil)
+	err := c.CheckConn()
 	if err != nil {
 		return nil, err
 	}
