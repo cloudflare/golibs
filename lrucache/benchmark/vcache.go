@@ -12,7 +12,7 @@ type VCache struct {
 
 func NewVCache(capacity uint64) *VCache {
 	return &VCache{
-		LRUCache: *vcache.NewLRUCache(capacity),
+		LRUCache: *vcache.NewLRUCache(int64(capacity)),
 	}
 }
 
