@@ -32,6 +32,14 @@ func (r *EwmaRate) Init(halfLife time.Duration) *EwmaRate {
 	return r
 }
 
+// Set current value of rate
+//
+// Useful for reading saved value on restart (for long running averages) or resetting internal state
+
+func (r *EwmaRate) Set(value float64, timestamp time.Time) {
+	r.Ewma.Set(value, timestamp)
+}
+
 // Notify of an event happening.
 //
 // Uses system clock to determine current time. Returns current rate.
