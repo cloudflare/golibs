@@ -107,10 +107,33 @@ func expiryCertMetric(certFile string) error {
 	}
 }
 
+func certPaths(dir string) (cert, key, ca string, err error) {
+	certSets := [][]string{
+		[]string{"service.pem", "service-key.pem", "ca.pem"}, // certmgr
+		[]string{"tls.crt", "tls.key", "ca.crt"},             // kubernetes pki
+	}
+
+	for _, set := range certSets {
+		goodSet := true
+		for _, file := range set {
+			check := path.Join(dir, file)
+			if _, err := os.Stat(check); os.IsNotExist(err) {
+				goodSet = false
+				break
+			}
+		}
+		if goodSet {
+			return set[0], set[1], set[2], nil
+		}
+	}
+	return "", "", "", fmt.Errorf("there are no certificates in path: %s", dir)
+}
+
 func loadCerts(creds string) (*tls.Certificate, *x509.CertPool, error) {
-	cert := path.Join(creds, "service.pem")
-	key := path.Join(creds, "service-key.pem")
-	ca := path.Join(creds, "ca.pem")
+	cert, key, ca, err := certPaths(creds)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	err := expiryCertMetric(cert)
 	if err != nil {
