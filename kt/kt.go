@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -135,7 +136,7 @@ func loadCerts(creds string) (*tls.Certificate, *x509.CertPool, error) {
 		return nil, nil, err
 	}
 
-	err := expiryCertMetric(cert)
+	err = expiryCertMetric(cert)
 	if err != nil {
 		return nil, nil, err
 	}
