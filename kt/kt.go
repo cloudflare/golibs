@@ -116,15 +116,19 @@ func certPaths(dir string) (cert, key, ca string, err error) {
 
 	for _, set := range certSets {
 		goodSet := true
-		for _, file := range set {
-			check := path.Join(dir, file)
-			if _, err := os.Stat(check); os.IsNotExist(err) {
+		cert = path.Join(dir, set[0])
+		key = path.Join(dir, set[1])
+		ca = path.Join(dir, set[2])
+
+		for _, file := range []string{cert, key, ca} {
+			if _, err := os.Stat(file); os.IsNotExist(err) {
 				goodSet = false
 				break
 			}
 		}
+
 		if goodSet {
-			return set[0], set[1], set[2], nil
+			return cert, key, ca, nil
 		}
 	}
 	return "", "", "", fmt.Errorf("there are no certificates in path: %s", dir)
