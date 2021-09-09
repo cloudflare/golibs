@@ -134,28 +134,24 @@ func certPaths(dir string) (cert, key, ca string, err error) {
 	return "", "", "", fmt.Errorf("there are no certificates in path: %s", dir)
 }
 
-func loadCerts(creds string) (*tls.Certificate, *x509.CertPool, error) {
-	cert, key, ca, err := certPaths(creds)
+func loadCerts(rootPath string, certPath string, keyPath string) (*tls.Certificate, *x509.CertPool, error) {
+
+	err := expiryCertMetric(certPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = expiryCertMetric(cert)
+	certX509, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	certX509, err := tls.LoadX509KeyPair(cert, key)
+	err = expiryCertMetric(rootPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = expiryCertMetric(ca)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	caFile, err := ioutil.ReadFile(ca)
+	caFile, err := ioutil.ReadFile(rootPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -166,8 +162,9 @@ func loadCerts(creds string) (*tls.Certificate, *x509.CertPool, error) {
 	return &certX509, roots, err
 }
 
-func newTLSClientConfig(creds string) (*tls.Config, error) {
-	certX509, roots, err := loadCerts(creds)
+func newTLSClientConfig(rootPath string, certPath string, keyPath string) (*tls.Config, error) {
+
+	certX509, roots, err := loadCerts(rootPath, certPath, keyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -189,14 +186,19 @@ func newTLSClientConfig(creds string) (*tls.Config, error) {
 //
 // REST format is just the body of the HTTP request being the value.
 
-func newConn(host string, port int, poolsize int, timeout time.Duration, creds string) (*Conn, error) {
+func newConn(host string, port int, poolsize int, timeout time.Duration, certDir string) (*Conn, error) {
 	var tlsConfig *tls.Config
 	var err error
 
 	scheme := "http"
 
-	if creds != "" {
-		tlsConfig, err = newTLSClientConfig(creds)
+	if certDir != "" {
+		certPath, keyPath, rootPath, err := certPaths(certDir)
+		if err != nil {
+			return nil, err
+		}
+
+		tlsConfig, err = newTLSClientConfig(rootPath, certPath, keyPath)
 		if err != nil {
 			return nil, err
 		}
@@ -228,8 +230,8 @@ func newConn(host string, port int, poolsize int, timeout time.Duration, creds s
 }
 
 // NewConnTLS creates a TLS enabled connection to a Kyoto Tycoon endpoing
-func NewConnTLS(host string, port int, poolsize int, timeout time.Duration, creds string) (*Conn, error) {
-	return newConn(host, port, poolsize, timeout, creds)
+func NewConnTLS(host string, port int, poolsize int, timeout time.Duration, certDir string) (*Conn, error) {
+	return newConn(host, port, poolsize, timeout, certDir)
 }
 
 // NewConn creates a connection to an Kyoto Tycoon endpoint.
@@ -246,6 +248,38 @@ func NewConn(host string, port int, poolsize int, timeout time.Duration) (*Conn,
 	} else {
 		return nil, errors.New("NewConn: Wrong parameters")
 	}
+}
+
+// NewClientWithTLS creates a TLS enabled connection.
+// This method allows a custom path for the Root CA, and the Certificate and Key.
+func NewClientWithTLS(host string, port int, poolsize int, timeout time.Duration, rootPath string, certPath string, keyPath string) (*Conn, error) {
+
+	tlsConfig, err := newTLSClientConfig(rootPath, certPath, keyPath)
+	if err != nil {
+		return nil, err
+	}
+
+	portstr := strconv.Itoa(port)
+	c := &Conn{
+		scheme:  "https",
+		timeout: timeout,
+		host:    net.JoinHostPort(host, portstr),
+		transport: &http.Transport{
+			TLSClientConfig:       tlsConfig,
+			ResponseHeaderTimeout: timeout,
+			MaxIdleConnsPerHost:   poolsize,
+			IdleConnTimeout:       30 * time.Second,
+		},
+	}
+
+	// connectivity check so that we can bail out
+	// early instead of when we do the first operation.
+	err = c.CheckConn()
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 // CheckConn can be used to check connection to Kyoto Tycoon endpoint is working as expected.
