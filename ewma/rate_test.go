@@ -17,8 +17,6 @@ var testVectorRate = [][]testTupleRate{
 	// Sanity check (half life is 1 second)
 	{
 		// Feeding packets every second gets to 1 pps eventually
-		{false, 1, 0},
-		{true, 1, 0},
 		{true, 1, 0.5},
 		{true, 1, 0.75},
 		{true, 1, 0.875},
@@ -42,7 +40,6 @@ var testVectorRate = [][]testTupleRate{
 
 	// Burst of 10, 1ms apart, gets us to ~7 pps
 	{
-		{true, 1, 0},
 		{true, 0.001, -1}, {true, 0.001, -1}, {true, 0.001, -1}, {true, 0.001, -1}, {true, 0.001, -1},
 		{true, 0.001, -1}, {true, 0.001, -1}, {true, 0.001, -1}, {true, 0.001, -1}, {true, 0.001, -1},
 		{false, 0, 6.9075045629642595},
@@ -52,7 +49,6 @@ var testVectorRate = [][]testTupleRate{
 
 	// 10 packets 100ms apart, get 5 pps
 	{
-		{true, 1, 0},
 		{true, 0.1, -1}, {true, 0.1, -1}, {true, 0.1, -1}, {true, 0.1, -1}, {true, 0.1, -1},
 		{true, 0.1, -1}, {true, 0.1, -1}, {true, 0.1, -1}, {true, 0.1, -1}, {true, 0.1, -1},
 		{false, 0, 5.000000000000002},
@@ -65,7 +61,7 @@ func TestRate(t *testing.T) {
 	for testNo, test := range testVectorRate {
 		ts := time.Now()
 		e := NewEwmaRate(time.Duration(1 * time.Second))
-
+		e.Ewma.Set(0, ts)
 		for lineNo, l := range test {
 			ts = ts.Add(time.Duration(l.delay * float64(time.Second.Nanoseconds())))
 			if l.packet {

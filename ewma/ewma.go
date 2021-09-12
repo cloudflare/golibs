@@ -47,6 +47,14 @@ func (e *Ewma) count(next float64, timeDelta time.Duration) float64 {
 	return e.Current*weight + next*(1-weight)
 }
 
+// Set current value of moving average
+//
+// Useful for reading saved value on restart (for long running averages) or resetting internal state
+func (e *Ewma) Set(value float64, timestamp time.Time) {
+	e.Current = value
+	e.lastTimestamp = timestamp
+}
+
 // Update moving average with the value.
 //
 // Uses system clock to determine current time to count wight. Returns
@@ -63,15 +71,12 @@ func (e *Ewma) Update(next float64, timestamp time.Time) float64 {
 		return e.Current
 	}
 
-	if e.lastTimestamp.IsZero() {
-		// Ignore the first sample
-		e.lastTimestamp = timestamp
-		return e.Current
-	}
-
 	timeDelta := timestamp.Sub(e.lastTimestamp)
 	e.lastTimestamp = timestamp
-
-	e.Current = e.count(next, timeDelta)
+	if e.lastTimestamp.IsZero() {
+		e.Current = next
+	} else {
+		e.Current = e.count(next, timeDelta)
+	}
 	return e.Current
 }
