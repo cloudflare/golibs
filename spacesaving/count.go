@@ -83,7 +83,7 @@ func (ss *Count) GetAll() []Element {
 
 func (ss *Count) Reset() {
 	empty := countBucket{}
-	for i, _ := range ss.olist {
+	for i := range ss.olist {
 		delete(ss.hash, ss.olist[i].key)
 		ss.olist[i] = empty
 	}

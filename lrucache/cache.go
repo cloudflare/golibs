@@ -8,16 +8,17 @@
 // otherwise.
 //
 // This package exports three things:
-//  LRUCache: is the main implementation. It supports multithreading by
-//      using guarding mutex lock.
 //
-//  MultiLRUCache: is a sharded implementation. It supports the same
-//      API as LRUCache and uses it internally, but is not limited to
-//      a single CPU as every shard is separately locked. Use this
-//      data structure instead of LRUCache if you have have lock
-//      contention issues.
+//	LRUCache: is the main implementation. It supports multithreading by
+//	    using guarding mutex lock.
 //
-//  Cache interface: Both implementations fulfill it.
+//	MultiLRUCache: is a sharded implementation. It supports the same
+//	    API as LRUCache and uses it internally, but is not limited to
+//	    a single CPU as every shard is separately locked. Use this
+//	    data structure instead of LRUCache if you have have lock
+//	    contention issues.
+//
+//	Cache interface: Both implementations fulfill it.
 package lrucache
 
 import (

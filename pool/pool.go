@@ -59,7 +59,7 @@ func (p *Pool) Put(x interface{}) {
 		if p.drainTicker == nil && p.DrainPeriod != 0 {
 			p.drainTicker = time.NewTicker(p.DrainPeriod)
 			go func() {
-				for _ = range p.drainTicker.C {
+				for range p.drainTicker.C {
 					p.Drain()
 				}
 			}()

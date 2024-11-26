@@ -106,12 +106,12 @@ func TestRateGetAll(t *testing.T) {
 
 	ss := (&Rate{}).Init(2, 1*time.Second)
 
-	ss.Touch("a",time.Now())
-	ss.Touch("a",time.Now())
-	ss.Touch("b",time.Now())
-	ss.Touch("b",time.Now())
-	ss.Touch("c",time.Now())
-	ss.Touch("c",time.Now())
+	ss.Touch("a", time.Now())
+	ss.Touch("a", time.Now())
+	ss.Touch("b", time.Now())
+	ss.Touch("b", time.Now())
+	ss.Touch("c", time.Now())
+	ss.Touch("c", time.Now())
 
 	el := ss.GetAll(time.Now())
 	if el[0].Key != "c" {
@@ -124,10 +124,10 @@ func TestRateGetAll(t *testing.T) {
 		t.Error("expecting lenght = 2")
 	}
 
-	ss.Touch("b",time.Now())
-	ss.Touch("b",time.Now())
-	ss.Touch("b",time.Now())
-	ss.Touch("b",time.Now())
+	ss.Touch("b", time.Now())
+	ss.Touch("b", time.Now())
+	ss.Touch("b", time.Now())
+	ss.Touch("b", time.Now())
 
 	el = ss.GetAll(time.Now())
 	if el[0].Key != "b" {
@@ -148,9 +148,7 @@ func TestRateGetAllCover(t *testing.T) {
 		t.Error("expecting lenght = 0")
 	}
 
-
 }
-
 
 // Benchmark updating times with 10% hit rate.
 func BenchmarkTouch16384_ten(bb *testing.B) {

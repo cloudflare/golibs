@@ -56,18 +56,20 @@ var testVectorEwma = [][]testTupleEwma{
 	},
 }
 
+func TestEwmaInit(t *testing.T) {
+	e := NewEwma(time.Duration(1 * time.Minute))
+	ts := time.Now()
+	e.Update(100, ts)
+
+	if e.Current != 100 {
+		t.Errorf("Rate after init should be same as first sample")
+	}
+}
 func TestEwma(t *testing.T) {
 	for testNo, test := range testVectorEwma {
 		e := NewEwma(time.Duration(1 * time.Minute))
-
-		// Feed the 0th timestamp
 		ts := time.Now()
 		e.Update(0, ts)
-
-		if e.Current != 0 {
-			t.Errorf("Rate after init should be zero")
-		}
-
 		for lineNo, l := range test {
 			ts = ts.Add(time.Duration(l.delay * float64(time.Second.Nanoseconds())))
 			e.Update(l.v, ts)

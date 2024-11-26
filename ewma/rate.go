@@ -1,6 +1,6 @@
 // Copyright (c) 2014 CloudFlare, Inc.
 //
-// Facilities for tickless measurment of rates
+// # Facilities for tickless measurment of rates
 //
 // Apply exponentially decaying moving average to count rates of
 // things per second. Useful for various metrics.
@@ -30,6 +30,14 @@ func NewEwmaRate(halfLife time.Duration) *EwmaRate {
 func (r *EwmaRate) Init(halfLife time.Duration) *EwmaRate {
 	r.Ewma.Init(halfLife)
 	return r
+}
+
+// Set current value of rate
+//
+// Useful for reading saved value on restart (for long running averages) or resetting internal state
+
+func (r *EwmaRate) Set(value float64, timestamp time.Time) {
+	r.Ewma.Set(value, timestamp)
 }
 
 // Notify of an event happening.

@@ -110,8 +110,8 @@ func expiryCertMetric(certFile string) error {
 
 func certPaths(dir string) (cert, key, ca string, err error) {
 	certSets := [][]string{
-		[]string{"service.pem", "service-key.pem", "ca.pem"}, // certmgr
-		[]string{"tls.crt", "tls.key", "ca.crt"},             // kubernetes pki
+		{"service.pem", "service-key.pem", "ca.pem"}, // certmgr
+		{"tls.crt", "tls.key", "ca.crt"},             // kubernetes pki
 	}
 
 	for _, set := range certSets {
@@ -498,7 +498,7 @@ func (c *Conn) doGetBulkBytes(ctx context.Context, keys map[string][]byte) error
 	// TSV value for each key with a _ as a prefix.
 	// KT then returns the value as a TSV set with _ in front of the keys
 	keystransmit := make([]KV, 0, len(keys))
-	for k, _ := range keys {
+	for k := range keys {
 		// we set the value to nil because we want a sentinel value
 		// for when no data was found. This is important for
 		// when we remove the not found keys from the map

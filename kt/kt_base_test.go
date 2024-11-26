@@ -272,7 +272,7 @@ func TestSetGetRemoveBulk(t *testing.T) {
 	}
 	removeKeys := make([]string, len(baseKeys))
 
-	for k, _ := range baseKeys {
+	for k := range baseKeys {
 		testKeys[k] = ""
 		removeKeys = append(removeKeys, k)
 	}

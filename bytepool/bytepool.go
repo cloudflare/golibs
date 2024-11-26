@@ -37,7 +37,7 @@ func (tp *BytePool) Init(drainPeriod time.Duration, maxSize uint32) {
 	if drainPeriod > 0 {
 		tp.drainTicker = time.NewTicker(drainPeriod)
 		go func() {
-			for _ = range tp.drainTicker.C {
+			for range tp.drainTicker.C {
 				tp.Drain()
 			}
 		}()

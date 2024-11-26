@@ -84,11 +84,11 @@ func (ss *SimpleRate) recount(rate float64, lastTs, now int64) float64 {
 
 func (ss *SimpleRate) Touch(key string, nowTs time.Time) {
 	var (
-		found    bool
-		bucket   *srateBucket
-		now      = nowTs.UnixNano()
+		found  bool
+		bucket *srateBucket
+		now    = nowTs.UnixNano()
 	)
-	bucket, found = ss.hash[key];
+	bucket, found = ss.hash[key]
 	if found {
 		// we already have the correct bucket
 	} else if len(ss.heap) < ss.size {

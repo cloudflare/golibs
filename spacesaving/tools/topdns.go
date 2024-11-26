@@ -88,7 +88,7 @@ devloop:
 func Poller(lock *sync.Mutex, ss *spacesaving.Rate, pc *pcap.Pcap) {
 	w := bufio.NewWriter(os.Stdout)
 
-	for _ = range time.Tick(3 * time.Second) {
+	for range time.Tick(3 * time.Second) {
 		stat, _ := pc.Getstats()
 
 		lock.Lock()

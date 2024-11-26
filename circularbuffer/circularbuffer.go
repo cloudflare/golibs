@@ -14,9 +14,10 @@
 // the stack.
 //
 // This package exports three things:
-//     StackPusher interface
-//     StackGetter interface
-//     CircularBuffer structure
+//
+//	StackPusher interface
+//	StackGetter interface
+//	CircularBuffer structure
 package circularbuffer
 
 import (
