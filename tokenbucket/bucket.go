@@ -3,6 +3,7 @@ package tokenbucket
 
 import (
 	"math/rand"
+	"sync/atomic"
 	"time"
 )
 
@@ -43,19 +44,25 @@ func New(num int, rate float64, depth uint64) *Filter {
 
 func (b *Filter) touch(it *item) bool {
 	now := uint64(time.Now().UnixNano())
-	delta := now - it.prev
-	it.credit += delta
-	it.prev = now
+	oldPrev := atomic.LoadUint64(&it.prev)
+	oldCredit := atomic.LoadUint64(&it.credit)
 
-	if it.credit > b.creditMax {
-		it.credit = b.creditMax
-	}
+	delta := now - oldPrev
+	defer atomic.StoreUint64(&it.prev, now)
 
-	if it.credit > b.touchCost {
-		it.credit -= b.touchCost
-		return true
+	newCredit := oldCredit + delta
+	allow := false
+
+	if newCredit > b.creditMax {
+		newCredit = b.creditMax
 	}
-	return false
+	if newCredit > b.touchCost {
+		newCredit -= b.touchCost
+		allow = true
+	}
+	atomic.StoreUint64(&it.credit, newCredit)
+
+	return allow
 }
 
 // Touch finds the token bucket for d, takes a token out of it and reports if
